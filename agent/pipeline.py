@@ -442,8 +442,8 @@ def _export(strategy: dict, scenario_docs: list[dict], platform_doc: dict, docum
     fact_lines = [f"- {item['point']} / {item['source_title']}" for item in article["facts"]] or ["- 无"]
     source_lines = [f"- [P1] {item['title']}" for item in documents]
     scenario_lines = [f"- [P8/{item['role']}] {item['title']}" for item in scenario_docs]
-    paragraphs = "\n\n".join(str(item or "") for item in article.get("paragraphs") or []) or "（无）"
-    tags = " ".join(f"#{str(tag).lstrip('#')}" for tag in article.get("tags") or [] if tag)
+    paragraphs = "\n\n".join(article["paragraphs"]) or "（无）"
+    tags = " ".join(f"#{tag.lstrip('#')}" for tag in article["tags"])
     image_lines = [
         f"- {item['name']} / 来源：{item['source']} / 位置：{item['position']} / 说明：{item['caption']}"
         for item in article["images"]

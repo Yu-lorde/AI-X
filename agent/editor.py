@@ -108,7 +108,7 @@ def compose_article(title, options, lead, paragraphs, cta, tags, picks, captions
         "title": str(title or "").strip(),
         "title_options": option_lines,
         "lead": str(lead or "").strip(),
-        "paragraphs": [str(item or "") for item in paragraphs],
+        "paragraphs": list(paragraphs),
         "cta": str(cta or "").strip(),
         "tags": tag_list,
         "images": images,

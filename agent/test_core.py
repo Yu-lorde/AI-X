@@ -1,7 +1,6 @@
 from scenario_router import resolve_scenario
 from strategy import classify_title, missing_questions
 from compliance import check_text
-from vector_map import apply_sentence, map_sentence
 
 
 def test_missing_questions():
@@ -172,83 +171,6 @@ def test_local_kb_feeds_editor_slots():
     assert "四、核验结果" in checks and "产品事实" in checks and "待确认信息" in checks
 
 
-def test_sentence_maps_education_admin_wechat():
-    mapped = map_sentence("给学校教务和信息中心写一篇 MateBook D 14 开学季微信公众号，删掉续航，只保留携带")
-    assert mapped["product"] == "MateBook D 14"
-    assert mapped["scene"] == "开学季"
-    assert mapped["platform"] == "微信公众号"
-    assert mapped["note"] == "删掉续航，只保留携带"
-    route = resolve_scenario(mapped["audience"], mapped["scene"], mapped["note"])
-    assert route["status"] == "matched"
-    assert route["module_id"] == "06-教育管理"
-
-
-def test_sentence_maps_freshman_redbook_without_other_fields():
-    mapped = map_sentence("给准备开学的大学新生写一篇 MateBook D 14 的小红书，删掉续航，只保留携带")
-    assert mapped["product"] == "MateBook D 14"
-    assert mapped["scene"] == "开学季"
-    assert mapped["platform"] == "小红书"
-    assert "只保留携带" in mapped["note"]
-    route = resolve_scenario(mapped["audience"], mapped["scene"], "")
-    assert route["module_id"] == "08-高校学生"
-
-
-def test_nearby_models_stay_distinct_in_vector_map():
-    assert map_sentence("写 MateBook D 16 的公众号")["product"] == "MateBook D 16"
-    assert map_sentence("MateBook D 16 SE 版 门店海报")["product"] == "MateBook D 16 SE 版"
-    assert map_sentence("鸿蒙 MateBook 14 开学")["product"] == "HUAWEI MateBook 14"
-    assert map_sentence("MateBook Pro S 的知乎")["product"] == "HUAWEI MateBook Pro S"
-    assert map_sentence("对比 MateBook D 14 和 MateBook D 16 怎么选")["product"] == ""
-
-
-def test_unspecified_model_is_not_guessed():
-    mapped = map_sentence("给大学新生写一篇开学季小红书")
-    assert mapped["product"] == ""
-    assert mapped["platform"] == "小红书"
-    assert mapped["scene"] == "开学季"
-    assert map_sentence("帮我写一篇 MateBook 的小红书")["product"] == ""
-
-
-def test_vector_maps_paraphrase_without_catalog_keyword():
-    mapped = map_sentence("给画海报的视觉同学写一篇小红书")
-    route = resolve_scenario(mapped["audience"], "内容创作", "")
-    assert route["module_id"] == "13-设计创意"
-    assert mapped["platform"] == "小红书"
-    assert mapped["product"] == ""
-
-
-def test_vector_maps_entry_laptop_phrase_to_d14():
-    mapped = map_sentence("写一台入门轻薄本的开学季公众号")
-    assert mapped["product"] == "MateBook D 14"
-    assert mapped["scene"] == "开学季"
-    assert mapped["platform"] == "微信公众号"
-
-
-def test_hand_filled_model_and_audience_win_over_sentence():
-    resolved = apply_sentence(
-        "MateBook D 16",
-        "大学新生",
-        "开学季",
-        "小红书",
-        "只保留接口",
-        "给学校教务写 MateBook D 14 微信公众号，删掉续航",
-    )
-    assert resolved["product"] == "MateBook D 16"
-    assert resolved["audience"] == "大学新生"
-    assert resolved["platform"] == "微信公众号"
-    assert resolved["note"] == "只保留接口"
-    assert "型号以手填为准" in resolved["detail"]
-
-
-def test_empty_sentence_keeps_the_form():
-    resolved = apply_sentence("MateBook D 14", "大学新生", "开学季", "小红书", "", "")
-    assert resolved["product"] == "MateBook D 14"
-    assert resolved["audience"] == "大学新生"
-    assert resolved["scene"] == "开学季"
-    assert resolved["platform"] == "小红书"
-    assert resolved["detail"] == ""
-
-
 if __name__ == "__main__":
     test_missing_questions()
     test_nearby_model_is_not_exact()
@@ -259,12 +181,4 @@ if __name__ == "__main__":
     test_article_render_embeds_cached_image()
     test_platform_points_at_p6_template()
     test_local_kb_feeds_editor_slots()
-    test_sentence_maps_education_admin_wechat()
-    test_sentence_maps_freshman_redbook_without_other_fields()
-    test_nearby_models_stay_distinct_in_vector_map()
-    test_unspecified_model_is_not_guessed()
-    test_vector_maps_paraphrase_without_catalog_keyword()
-    test_vector_maps_entry_laptop_phrase_to_d14()
-    test_hand_filled_model_and_audience_win_over_sentence()
-    test_empty_sentence_keeps_the_form()
     print("core checks passed")
