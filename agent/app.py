@@ -7,6 +7,7 @@ from local_kb import KB_ROOT
 from pipeline import _export, run
 from render import render_checks, render_effect, render_sources
 from strategy import MARKETING_SCENES, PLATFORMS
+from vector_map import apply_sentence
 
 PAGE_CSS = """
 .copy-section { margin: 0 0 16px; padding: 18px 22px; border: 1px solid var(--border-color-primary); border-radius: 14px; background: var(--block-background-fill); }
@@ -136,9 +137,30 @@ def on_pick(focus, state, evt: gr.SelectData):
     return updates
 
 
-def generate(product, audience, scene, platform, note):
+def _form_updates(brief, product, audience, scene, platform, note):
+    if not (brief or "").strip():
+        return [gr.update() for _ in range(5)]
+    return [
+        gr.update(value=product),
+        gr.update(value=audience),
+        gr.update(value=scene),
+        gr.update(value=platform),
+        gr.update(value=note),
+    ]
+
+
+def generate(product, audience, scene, platform, note, brief):
+    resolved = apply_sentence(product, audience, scene, platform, note, brief)
+    product = resolved["product"]
+    audience = resolved["audience"]
+    scene = resolved["scene"]
+    platform = resolved["platform"]
+    note = resolved["note"]
+    form = _form_updates(brief, product, audience, scene, platform, note)
     result = run(product or "", audience or "", scene or "", platform or "", note or "")
     status = _status_text()
+    if resolved.get("detail"):
+        status += "\n\n" + resolved["detail"]
     if result.get("message"):
         status += "\n\n" + result["message"]
     export = result.get("export_text") or ""
@@ -151,6 +173,7 @@ def generate(product, audience, scene, platform, note):
             status,
             export,
             *_idle_fields(),
+            *form,
         ]
     state = pack_state(result)
     article = result["article"]
@@ -200,6 +223,7 @@ def generate(product, audience, scene, platform, note):
         status,
         export,
         *fields,
+        *form,
     ]
 
 
@@ -207,12 +231,18 @@ def build_demo() -> gr.Blocks:
     with gr.Blocks(title="华为PC营销软文智能体") as demo:
         gr.Markdown(
             """# 华为 PC 营销软文智能体
-上方填写任务。中间是图文：左边看效果，右边按位置改文字，配图可以从备选图片里重选。页面最下方分开显示知识库依据和核验结果。远程知识库不可用时，自动改读本地华为 PC 知识库。"""
+上方填写任务，也可以只写一句话。一句话会按文本向量映射到型号、人群、场景和平台。中间是图文：左边看效果，右边按位置改文字，配图可以从备选图片里重选。页面最下方分开显示知识库依据和核验结果。远程知识库不可用时，自动改读本地华为 PC 知识库。"""
         )
         with gr.Row():
             status = gr.Markdown(_status_text())
             test_button = gr.Button("测试共享知识库", scale=0)
         with gr.Group():
+            brief = gr.Textbox(
+                label="一句话需求（可选）",
+                info="只填这一句也可以生成。句子会映射到型号、人群、场景和平台；没点名的场景和平台沿用下拉框。型号和人群如果已经手填，以手填为准。",
+                placeholder="例如 给学校教务和信息中心写 MateBook D 14 开学季微信公众号，删掉续航只保留携带",
+                lines=1,
+            )
             with gr.Row():
                 product = gr.Textbox(label="产品型号", placeholder="例如 MateBook D 14", lines=1, max_lines=1, scale=1)
                 audience = gr.Textbox(label="目标人群", placeholder="例如 大学新生", lines=1, max_lines=1, scale=1)
@@ -223,10 +253,11 @@ def build_demo() -> gr.Blocks:
                 button = gr.Button("生成并核验", variant="primary", scale=1)
         gr.Examples(
             examples=[
-                ["MateBook D 14", "学校教务和信息中心", "开学季", "微信公众号", ""],
-                ["MateBook D 14", "准备开学的大学新生", "开学季", "小红书", ""],
+                ["MateBook D 14", "学校教务和信息中心", "开学季", "微信公众号", "", ""],
+                ["MateBook D 14", "准备开学的大学新生", "开学季", "小红书", "", ""],
+                ["", "", "开学季", "小红书", "", "给准备开学的大学新生写一篇 MateBook D 14 的小红书，删掉续航，只保留携带"],
             ],
-            inputs=[product, audience, scene, platform, note],
+            inputs=[product, audience, scene, platform, note, brief],
         )
         editor_state = gr.State({})
         with gr.Row(elem_classes=["work-row"]):
@@ -303,9 +334,14 @@ def build_demo() -> gr.Blocks:
             *paras,
             *picks,
             *caps,
+            product,
+            audience,
+            scene,
+            platform,
+            note,
         ]
         test_button.click(test_connection, outputs=[connection, status])
-        button.click(generate, [product, audience, scene, platform, note], outputs)
+        button.click(generate, [product, audience, scene, platform, note, brief], outputs)
     return demo
 
 
