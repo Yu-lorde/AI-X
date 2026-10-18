@@ -1,0 +1,11 @@
+.env
+**/.env
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.log
+agent/cache/
+agent/_kb_preview.txt
+华为PC知识库/
+华为PC知识库.zip
