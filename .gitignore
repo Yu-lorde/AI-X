@@ -12,6 +12,11 @@ agent/cache/
 agent/_kb_preview.txt
 agent/data/
 agent/history_assets/
+server/data/
+
+# 前端依赖与构建产物
+web/node_modules/
+web/dist/
 
 # 本地工具与 IDE 配置
 .tools/

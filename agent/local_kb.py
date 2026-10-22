@@ -1,11 +1,26 @@
 """ima 不可用时，从本地华为 PC 知识库读取同样的场景文档、平台模板、产品事实和图片。"""
 
 import csv
+import os
 from pathlib import Path
 
 from strategy import classify_title
 
-KB_ROOT = Path(__file__).resolve().parent.parent / "华为PC知识库" / "华为PC全板块深度知识库_v7"
+DEFAULT_KB_ROOT = Path(__file__).resolve().parent.parent / "华为PC知识库" / "华为PC全板块深度知识库_v7"
+
+
+def _kb_root(base: Path) -> Path:
+    """允许 AIX_KB_ROOT 指向知识库的上级目录，自动向下找到含 P8 的那一层。"""
+    if (base / "P8-客户场景库").is_dir():
+        return base
+    if base.is_dir():
+        for child in sorted(base.iterdir()):
+            if (child / "P8-客户场景库").is_dir():
+                return child
+    return base
+
+
+KB_ROOT = _kb_root(Path(os.environ.get("AIX_KB_ROOT") or DEFAULT_KB_ROOT))
 P8 = KB_ROOT / "P8-客户场景库"
 P6_TEMPLATES = KB_ROOT / "P6-营销素材库" / "02-平台模板"
 P1 = KB_ROOT / "P1-产品参数库"
