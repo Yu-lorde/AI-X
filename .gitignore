@@ -1,11 +1,27 @@
+# 凭证与虚拟环境
 .env
 **/.env
+.venv/
 __pycache__/
 *.py[cod]
-.venv/
 .pytest_cache/
 *.log
+
+# 运行时缓存与生成物
 agent/cache/
 agent/_kb_preview.txt
+agent/data/
+agent/history_assets/
+
+# 本地工具与 IDE 配置
+.tools/
+.vscode/
+
+# 知识库与大体积压缩包
 华为PC知识库/
 华为PC知识库.zip
+任德耀新建华为PC知识库*
+*.zip
+
+# 抖音真实视频范文库（训练数据，仅本地保留）
+参考范文库/
