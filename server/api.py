@@ -12,7 +12,9 @@ from editor import MAX_PARAS, pack_state
 from ima_client import ImaError, probe_connection
 from local_kb import KB_ROOT
 from pipeline import run
-from strategy import MARKETING_SCENES, PLATFORMS
+from strategy import MARKETING_SCENES, PLATFORMS, PERSPECTIVES, PERSPECTIVE_DEFAULT
+from parse_request import parse_request
+from llm_client import LlmError
 from pydantic import BaseModel, Field
 
 from . import history_service
@@ -36,6 +38,7 @@ class GenerateIn(BaseModel):
     scene: str = "开学季"
     platform: str = "小红书"
     note: str = ""
+    perspective: str = PERSPECTIVE_DEFAULT
 
 
 class EditorIn(BaseModel):
@@ -82,6 +85,8 @@ def meta(request: Request) -> dict:
     return {
         "scenes": MARKETING_SCENES,
         "platforms": list(PLATFORMS),
+        "perspectives": list(PERSPECTIVES),
+        "perspective_default": PERSPECTIVE_DEFAULT,
         "credentials": credential_status(),
         "kb": {"root": str(KB_ROOT), "exists": KB_ROOT.exists()},
         "history": {"db": str(db_file()), "count": count},
@@ -89,12 +94,29 @@ def meta(request: Request) -> dict:
     }
 
 
+class ParseRequestIn(BaseModel):
+    sentence: str = Field(min_length=1, max_length=6000)
+
+
+@router.post("/parse-request")
+def parse_sentence(payload: ParseRequestIn) -> dict:
+    load_env_file()
+    if not payload.sentence.strip():
+        raise HTTPException(status_code=422, detail="请输入一句话需求。")
+    if not credential_status()["llm_key"]:
+        raise HTTPException(status_code=503, detail="未配置大模型密钥，请直接填写下方表单。")
+    try:
+        return {"inputs": parse_request(payload.sentence)}
+    except LlmError:
+        raise HTTPException(status_code=502, detail="需求解析失败，请重试或直接填写下方表单。")
+
+
 @router.post("/generate")
 def generate(payload: GenerateIn, request: Request) -> dict:
     owner = _visitor(request)
     inputs = payload.model_dump()
     try:
-        result = run(inputs["product"], inputs["audience"], inputs["scene"], inputs["platform"], inputs["note"])
+        result = run(inputs["product"], inputs["audience"], inputs["scene"], inputs["platform"], inputs["note"], inputs["perspective"])
     except Exception as exc:  # 业务异常统一回给前端，不返回堆栈
         return {"ok": False, "stage": "生成失败", "message": str(exc)[:300], "questions": [], "export_text": ""}
 

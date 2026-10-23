@@ -40,7 +40,12 @@ export function HeroFlow() {
     };
   }, []);
   return <div ref={ref} className="hero-art" aria-hidden="true">
-    <div className="hero-art-image" />
+    <svg className="flow-filter-defs" width="0" height="0" aria-hidden="true"><defs>
+      <filter id="hero-liquid-warp" x="-5%" y="-5%" width="110%" height="110%" colorInterpolationFilters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency=".004 .007" numOctaves="1" seed="8" result="noise">
+          <animate attributeName="baseFrequency" values=".004 .007;.005 .009;.004 .007" dur="18s" repeatCount="indefinite" />
+        </feTurbulence><feDisplacementMap in="SourceGraphic" in2="noise" scale="14" xChannelSelector="R" yChannelSelector="G" />
+      </filter></defs></svg><div className="hero-art-image" />
     <div className="hero-pointer-light" />
   </div>;
 }

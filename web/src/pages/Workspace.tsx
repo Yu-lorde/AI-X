@@ -32,6 +32,9 @@ export function WorkspacePage() {
   const { workId } = useParams();
   const navigate = useNavigate();
 
+  const [sentence, setSentence] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [parseHint, setParseHint] = useState("");
   const [meta, setMeta] = useState<Meta | null>(null);
   const [form, setForm] = useState<Inputs>(DEFAULT_INPUTS);
   const [work, setWork] = useState<WorkData | null>(null);
@@ -275,10 +278,23 @@ export function WorkspacePage() {
 
   const update = (part: Partial<Inputs>) => setForm((current) => ({ ...current, ...part }));
 
+  const onParse = async () => {
+    if (parsing || busy || !sentence.trim()) return;
+    setParsing(true);
+    setParseHint("");
+    try {
+      const { inputs } = await api.parseRequest(sentence);
+      setForm(current => ({ ...current, ...inputs, perspective: inputs.perspective || current.perspective || meta?.perspective_default }));
+      const missing = [!inputs.product && "产品型号", !inputs.platform && "发布平台"].filter(Boolean);
+      setParseHint(missing.length ? `已解析，请补充${missing.join("、")}；核对下方字段后再生成。` : "已填入下方字段，请核对后生成。人群和场景可留空。");
+    } catch (error) { setParseHint(errorText(error)); }
+    finally { setParsing(false); }
+  };
+
   const onGenerate = async () => {
-    if (busy) return;
-    if (!form.product.trim() || !form.audience.trim()) {
-      setError("先填写产品型号和目标人群，再生成。");
+    if (busy || parsing) return;
+    if (!form.product.trim() || !form.platform.trim()) {
+      setError("先填写产品型号和发布平台，再生成。");
       setFormOpen(true);
       return;
     }
@@ -404,6 +420,16 @@ export function WorkspacePage() {
         </div>
       ) : (
         <section className="card task-card">
+          <div className="sentence-demand field">
+            <label htmlFor="sentence-demand">一句话需求</label>
+            <textarea id="sentence-demand" rows={2} value={sentence} disabled={parsing || busy}
+              onChange={e => setSentence(e.target.value)}
+              placeholder="例如：以真实用户视角给开学季大学新生写一篇小红书，推荐 MateBook D 14，重点讲便携。" />
+            <div className="sentence-demand-actions">
+              <span className="hint" role="status">{parseHint || "解析后自动填写下方字段，可继续手动修改。"}</span>
+              <button type="button" className="btn ghost" disabled={parsing || busy || !sentence.trim()} onClick={onParse}>{parsing ? "正在解析…" : "解析填入"}</button>
+            </div>
+          </div>
           <div className="form-grid">
             <div className="field">
               <label htmlFor="f-product">产品型号</label>
@@ -415,7 +441,7 @@ export function WorkspacePage() {
               />
             </div>
             <div className="field">
-              <label htmlFor="f-audience">目标人群</label>
+              <label htmlFor="f-audience">目标人群（可留空）</label>
               <input
                 id="f-audience"
                 placeholder="例如 大学新生"
@@ -426,6 +452,7 @@ export function WorkspacePage() {
             <div className="field">
               <label htmlFor="f-scene">业务场景</label>
               <select id="f-scene" value={form.scene} onChange={(event) => update({ scene: event.target.value })}>
+                <option value="">无明确场景</option>
                 {scenes.map((scene) => (
                   <option key={scene}>{scene}</option>
                 ))}
@@ -438,9 +465,17 @@ export function WorkspacePage() {
                 value={form.platform}
                 onChange={(event) => update({ platform: event.target.value })}
               >
+                <option value="">请选择平台</option>
                 {platforms.map((platform) => (
                   <option key={platform}>{platform}</option>
                 ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="f-perspective">写作视角</label>
+              <select id="f-perspective" value={form.perspective || meta?.perspective_default || ""} onChange={e => update({ perspective: e.target.value })}>
+                {!meta?.perspectives?.length && <option value="">默认视角</option>}
+                {meta?.perspectives?.map(item => <option key={item} value={item}>{item}</option>)}
               </select>
             </div>
             <div className="field wide">

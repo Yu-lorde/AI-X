@@ -17,6 +17,7 @@ const post = (url: string, body: unknown) =>
   });
 
 export const api = {
+  parseRequest: (sentence: string) => post("/api/parse-request", { sentence }).then((r) => parse<{ inputs: Inputs }>(r)),
   meta: () => fetch("/api/meta").then((r) => parse<Meta>(r)),
 
   generate: (inputs: Inputs) => post("/api/generate", inputs).then((r) => parse<WorkData | GenerateFailure>(r)),

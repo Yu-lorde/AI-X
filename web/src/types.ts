@@ -1,5 +1,7 @@
 export interface Meta {
   scenes: string[];
+  perspectives?: string[];
+  perspective_default?: string;
   platforms: string[];
   credentials: { ima_id: boolean; ima_key: boolean; llm_key: boolean };
   kb: { root: string; exists: boolean };
@@ -8,6 +10,7 @@ export interface Meta {
 }
 
 export interface Inputs {
+  perspective?: string;
   product: string;
   audience: string;
   scene: string;
