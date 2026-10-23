@@ -4,7 +4,12 @@ import { useTheme } from "../theme";
 const vertex = `attribute vec2 aPosition; varying vec2 vUv;
 void main(){vUv=aPosition*.5+.5;gl_Position=vec4(aPosition,0.,1.);}`;
 // Original single-pass shader: artwork-preserving displacement, not a fluid solver.
-const fragment = `precision mediump float;
+const fragment = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
 varying vec2 vUv;
 uniform sampler2D uImage;
 uniform vec2 uResolution, uImageSize;
@@ -91,7 +96,10 @@ export function HeroFlow() {
     gl.uniform1i(gl.getUniformLocation(program, "uImage"), 0);
     const resize = () => {
       const rect = shell.getBoundingClientRect();
-      const dpr = Math.min(devicePixelRatio || 1, innerWidth < 761 ? 1 : 1.5);
+      // Match HiDPI displays without exceeding GPU texture/viewport limits.
+      const maxTexture = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
+      const maxViewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array;
+      const dpr = Math.min(devicePixelRatio || 1, 2, maxTexture / Math.max(rect.width, rect.height, 1), maxViewport[0] / Math.max(rect.width, 1), maxViewport[1] / Math.max(rect.height, 1));
       canvas.width = Math.max(1, Math.round(rect.width*dpr));
       canvas.height = Math.max(1, Math.round(rect.height*dpr));
       gl.viewport(0,0,canvas.width,canvas.height);
@@ -142,7 +150,7 @@ export function HeroFlow() {
       gl.uniform2f(gl.getUniformLocation(program,"uImageSize"),image.naturalWidth,image.naturalHeight);
       resize(); loaded=true; resume();
     };
-    image.src=`/media/hero-glass-${theme}.webp`;
+    image.src=`/media/hero-glass-${theme}-original.png`;
     return ()=>{
       disposed=true; stop(); image.onload=null;
       observer.disconnect(); intersection.disconnect();

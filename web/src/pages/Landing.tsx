@@ -12,20 +12,20 @@ const SCENES = [
   {
     img: "/media/campus.jpg",
     tag: "高校学生",
-    title: "开学季 · 宿舍 · 课堂",
-    body: "围绕课程学习、宿舍使用和日常携带，介绍相关产品特点。",
+    title: "开学季",
+    body: "课程学习、宿舍使用、日常携带，按读者关心的问题组织产品信息。",
   },
   {
     img: "/media/office-desk.jpg",
     tag: "职场办公",
-    title: "通勤 · 会议 · 移动办公",
-    body: "围绕文档处理、会议和移动办公，介绍设备用途与适用条件。",
+    title: "职场办公",
+    body: "文档处理、会议协作、移动办公，说明设备用途与适用条件。",
   },
   {
     img: "/media/creator.jpg",
     tag: "内容创作",
-    title: "图文 · 种草 · 短视频脚本",
-    body: "结合图文、设计和视频任务，整理产品介绍重点。",
+    title: "内容创作",
+    body: "图文、设计、视频等创作任务，梳理对应的产品能力与限制。",
   },
 ];
 
@@ -33,17 +33,17 @@ const STEPS = [
   {
     no: "01",
     title: "填写创作要求",
-    body: "填写产品、读者、业务场景和发布平台，补充相关重点。",
+    body: "产品型号、目标读者、业务场景、发布平台，四项信息确定文案方向。",
   },
   {
     no: "02",
-    title: "生成并核对内容",
-    body: "根据资料生成初稿，查看引用来源和待确认信息。",
+    title: "生成并核验",
+    body: "检索知识库成稿，逐项核验产品事实与合规用语，引用来源与待确认信息单独列出。",
   },
   {
     no: "03",
     title: "编辑与保存版本",
-    body: "修改文字和配图，保存当前版本或继续编辑历史作品。",
+    body: "左侧编辑文字与配图，右侧实时预览。确认后保存为新版本，可随时回看或继续编辑。",
   },
 ];
 
@@ -52,13 +52,18 @@ const DOCS = ["MateBook D 14 产品介绍.pdf", "大学生笔记本电脑选购�
 export function LandingPage() {
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
+  const [historyStatus, setHistoryStatus] = useState<"loading" | "ready" | "error">("loading");
   const [recent, setRecent] = useState<WorkSummary[]>([]);
 
   useEffect(() => {
     api
       .works()
-      .then((data) => setRecent((data.works || []).slice(0, 3)))
-      .catch(() => setRecent([]));
+      .then((data) => {
+        if (data.error) throw new Error(data.error);
+        setRecent((data.works || []).slice(0, 3));
+        setHistoryStatus("ready");
+      })
+      .catch(() => { setRecent([]); setHistoryStatus("error"); });
   }, []);
 
   const jump = (id: string) => {
@@ -93,52 +98,31 @@ export function LandingPage() {
 
         <div className="hero-inner">
           <div className="hero-copy">
+            <p className="hero-eyebrow reveal">华为终端 · 营销内容智能体</p>
             <h1 className="reveal">
-              基于产品资料
+              从一条需求到一篇软文，
               <br />
-              生成营销文案
+              讲好全场景产品故事
             </h1>
             <p className="hero-sub reveal">
-              结合目标读者与发布平台生成初稿，支持图文编辑、资料核对和版本保存。
+              先检索产品知识库，再按平台模板成稿。产品参数、配图型号、合规用语逐项核验，每个产品事实都有出处。
             </p>
+            <p className="hero-detail reveal">保存编辑版本，可随时回溯。<br />以终端产品为核心，按多设备协同的使用场景组织卖点，不同产品之间的表述保持一致。</p>
             <div className="hero-actions reveal">
               <button type="button" className="btn primary xl hero-cta" onClick={() => navigate("/workspace")}>
                 <SparkIcon size={17} />
                 开始创作
                 <ArrowIcon size={15} />
               </button>
-              <button type="button" className="hero-link" onClick={() => jump("example")}>
-                查看成稿示例
+              <button type="button" className="hero-link" onClick={() => navigate("/history")}>
+                看看生成过的文稿
                 <ArrowIcon size={14} />
               </button>
             </div>
-            <ul className="hero-steps reveal">
-              <li>
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                  <path d="M6 3.5h8l4 4v13H6z" />
-                  <path d="M14 3.5v4h4" />
-                </svg>
-                产品资料
-              </li>
-              <li className="sep" aria-hidden="true">
-                <ArrowIcon size={12} />
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                  <path d="M4 6h16M4 12h11M4 18h7" />
-                </svg>
-                文案生成
-              </li>
-              <li className="sep" aria-hidden="true">
-                <ArrowIcon size={12} />
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                  <circle cx="12" cy="12" r="8.5" />
-                  <path d="M8.5 12.2l2.4 2.4 4.6-4.8" />
-                </svg>
-                来源核对
-              </li>
+            <ul className="hero-metrics reveal" aria-label="支持范围与版本管理">
+              <li><strong>8</strong><span>业务场景</span></li>
+              <li><strong>13</strong><span>发布平台</span></li>
+              <li className="metric-version"><span>每次保存一个版本</span><small>改动可回溯</small></li>
             </ul>
           </div>
         </div>
@@ -162,11 +146,9 @@ export function LandingPage() {
             <span className="chip">开学季</span>
             <span className="hero-tag">示例内容</span>
           </div>
-          <h2>大学新生选电脑，先看学习和携带需求</h2>
-          <p className="hero-card-lead">选课、查资料、整理作业时，先排出每天最常用的几件事。</p>
-          <p className="hero-card-lead">
-            选购 MateBook D 14 时，可结合课程软件、配置和携带需求，再核对对应型号的产品资料。
-          </p>
+          <h2>大一新生选笔记本先看什么？</h2>
+          <p className="hero-card-lead">机身 1.39kg，14 英寸屏幕，日常背包不占地方。课程软件与办公配置以对应型号产品资料为准。</p>
+          <p className="example-disclosure">以上参数与核验数量仅用于界面演示，不代表本次检索或核验结果。</p>
           <div className="hero-card-actions">
             <span className="card-action">
               <SparkIcon size={13} />
@@ -190,11 +172,11 @@ export function LandingPage() {
           <div className="hero-card-foot">
             <span className="pill ok">
               <i className="dot" />
-              示例展示
+              事实核验 5 项通过（示例）
             </span>
             <span className="pill warn">
               <i className="dot" />
-              非真实生成记录
+              1 项待确认（示例）
             </span>
           </div>
         </aside>
@@ -202,8 +184,8 @@ export function LandingPage() {
 
       <section className="landing-scenes" id="scenes">
         <div className="scenes-head">
-          <h2>使用场景</h2>
-          <p>根据读者与使用需求，调整文案内容。</p>
+          <h2>已适配的业务场景</h2>
+          <p>同一套产品知识库，按读者与发布平台切换写法和配图。</p>
         </div>
         <div className="scene-grid">
           {SCENES.map((scene) => (
@@ -229,6 +211,7 @@ export function LandingPage() {
       <section className="landing-steps">
         <div className="scenes-head">
           <h2>创作流程</h2>
+          <p>从需求到成稿，每一步都有据可查。</p>
         </div>
         <div className="step-grid">
           {STEPS.map((step, index) => (
@@ -274,7 +257,7 @@ export function LandingPage() {
                   <span className="preview-ver">
                     <b className="ver-badge">V2</b>
                     开学季学生购机文案
-                    <span className="ver-now">示例版本</span>
+                    <span className="ver-now">当前版本 · 示例</span>
                   </span>
                   <span className="preview-ver">
                     <b className="ver-badge muted">V1</b>
@@ -287,14 +270,17 @@ export function LandingPage() {
         </div>
       </section>
 
-      {recent.length > 0 ? (
-        <section className="landing-recent">
+      <section className="landing-recent">
           <div className="recent-head">
             <h2>最近作品</h2>
             <button type="button" className="btn ghost small" onClick={() => navigate("/history")}>
               全部历史
             </button>
           </div>
+          {recent.length === 0 && <div className="recent-empty">
+            <strong>{historyStatus === "loading" ? "正在读取历史作品…" : historyStatus === "error" ? "暂时无法读取历史作品" : "暂无历史作品"}</strong>
+            <p>{historyStatus === "error" ? "请稍后重试，或前往全部历史查看。" : "保存第一篇文案后，可在这里继续编辑或查看版本。"}</p>
+          </div>}
           <div className="recent-list">
             {recent.map((item) => (
               <button
@@ -317,12 +303,11 @@ export function LandingPage() {
             ))}
           </div>
         </section>
-      ) : null}
 
       <footer className="landing-foot">
-        <strong>懂你所需 · 营销内容工作台</strong>
-        <span>产品资料、文案编辑与版本管理</span>
-        <span>面向华为产品推广，支持产品资料参考、图文编辑与版本保存。</span>
+        <strong>懂你所需</strong>
+        <span>面向华为产品的营销内容智能体</span>
+        <span>知识库检索、事实核验、合规检查与版本管理。</span>
         <span className="credit">场景配图来自 Unsplash，遵循 Unsplash License，可商用、免署名。</span>
       </footer>
     </div>
