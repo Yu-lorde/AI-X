@@ -105,7 +105,9 @@ export function LandingPage() {
               讲好全场景产品故事
             </h1>
             <p className="hero-sub reveal">
-              先检索产品知识库，再按平台模板成稿。产品参数、配图型号、合规用语逐项核验，每个产品事实都有出处。
+              先检索产品知识库，再按平台模板成稿。
+              <br />
+              产品参数、配图型号、合规用语逐项核验，每个产品事实都有出处。
             </p>
             <p className="hero-detail reveal">保存编辑版本，可随时回溯。<br />以终端产品为核心，按多设备协同的使用场景组织卖点，不同产品之间的表述保持一致。</p>
             <div className="hero-actions reveal">
