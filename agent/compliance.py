@@ -21,7 +21,19 @@ ABSOLUTE_WORDS = (
 # 「第一」只在真正的排名/销量断言里算绝对化，"开学第一周/第一次"这类不算。
 ABSOLUTE_FIRST_RE = re.compile(r"(销量|市场|全球|全国|行业|口碑|份额|排名|全网)\s*第一|第一\s*(品牌|名牌|梯队)")
 
-EXPERIENCE_WORDS = ("我用了", "亲测", "用了一个月", "我家", "个人感受", "真实体验")
+EXPERIENCE_WORDS = ("我用了", "亲测", "实测", "亲身体验", "真实体验", "用了一个月", "我家", "个人感受")
+# 第一人称购买/使用、身份代入开头、无依据的使用时长：小红书不允许虚构个人经历。
+FIRST_PERSON_EXPERIENCE_RE = re.compile(
+    r"我(?:最近|刚|也|就)?\s*(?:入手|买|购|下单|开箱)了?"
+    r"|(?:最近|刚|前阵子|上个月|去年)[^，。！？]{0,6}(?:入手|买|下单)了"
+    r"|我的[^，。！？]{0,16}(?:使用体验|上手体验|体验|感受|测评|评价)"
+    r"|(?:分享|说说)[^，。！？]{0,6}我的[^，。！？]{0,10}(?:体验|感受)"
+)
+IDENTITY_OPENING_RE = re.compile(
+    r"(?:^|[。！？\n])\s*作为(?:一名|一个|一位|一)?[^，。！？]{0,12}"
+    r"(?:学生|大学生|新生|研究生|上班族|打工人|宝妈|教师|老师|程序员|设计师)"
+)
+EXPERIENCE_DURATION_RE = re.compile(r"用了[一二三四五六七八九十两\d]+(?:个)?(?:月|天|周|年)")
 PROMO_WORDS = ("补贴", "优惠券", "限时", "库存", "销量", "好评如潮", "赠品", "返点")
 PRICE_RE = re.compile(r"(￥|¥)\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*元")
 
@@ -44,9 +56,12 @@ def check_text(text: str, source_text: str, platform: str) -> list[str]:
     if ABSOLUTE_FIRST_RE.search(text):
         issues.append("合规：出现「第一」类排名断言，需要删除或改为有依据的客观表述。")
     if platform == "小红书":
-        for word in EXPERIENCE_WORDS:
-            if word in text:
-                issues.append(f"合规：小红书文案出现「{word}」，不能写成个人体验。")
+        hits = [word for word in EXPERIENCE_WORDS if word in text]
+        for pattern in (FIRST_PERSON_EXPERIENCE_RE, IDENTITY_OPENING_RE, EXPERIENCE_DURATION_RE):
+            hits.extend(match.group(0).strip() for match in pattern.finditer(text))
+        if hits:
+            sample = "、".join(dict.fromkeys(hits))[:80]
+            issues.append(f"合规：小红书文案出现「{sample}」，疑似虚构个人购买/使用经历，需要改成第三人称或场景视角。")
     for word in PROMO_WORDS:
         if word in text and word not in source_text:
             issues.append(f"合规：写了「{word}」，本次检索资料中没有对应依据。")

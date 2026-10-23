@@ -40,6 +40,20 @@ def test_compliance_flags_leaked_specs_not_in_p1():
     assert ok == []
 
 
+def test_compliance_flags_first_person_fabricated_experience():
+    # 录屏里的小红书标题/导语：第一人称购买与使用经历必须被拦。
+    title = "大学生活效率翻倍!我的 MateBook D 14 使用体验"
+    lead = "作为一名大二学生,每天在宿舍、教室和图书馆之间奔波,最近入手了 HUAWEI MateBook D 14,分享一下我的使用体验~"
+    issues = check_text(f"{title}\n{lead}", "产品事实", "小红书")
+    joined = " ".join(issues)
+    assert "虚构" in joined and "我" in joined
+    # 场景视角、第三人称不误伤
+    safe = "新生选笔记本，先看课程、携带与续航需求。每天在教室、图书馆和宿舍之间来回，背包里的东西越轻越好。"
+    assert check_text(safe, "产品事实", "小红书") == []
+    # 其他平台维持原规则
+    assert check_text(lead, "产品事实", "公众号") == []
+
+
 def test_scenario_maps_education_admin_to_module():
     # 人群映射到行业模块（用来取该模块的客户画像），不再有母文档/五份文档/追问。
     route = resolve_scenario("学校教务和信息中心", "开学季", "")
@@ -192,6 +206,7 @@ if __name__ == "__main__":
     test_nearby_model_is_not_exact()
     test_compliance_flags_price_and_absolute_words()
     test_compliance_flags_leaked_specs_not_in_p1()
+    test_compliance_flags_first_person_fabricated_experience()
     test_scenario_maps_education_admin_to_module()
     test_student_maps_to_college_module()
     test_unknown_audience_falls_back_to_generic_not_ambiguous()
