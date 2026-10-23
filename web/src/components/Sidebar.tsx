@@ -1,12 +1,11 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 import { useTheme } from "../theme";
-import { HistoryIcon, MoonIcon, StatusIcon, SunIcon, WorkspaceIcon } from "./Icons";
+import { HistoryIcon, MoonIcon, SunIcon, WorkspaceIcon } from "./Icons";
 
 const NAV = [
-  { to: "/", label: "创作工作台", icon: WorkspaceIcon, end: true },
+  { to: "/workspace", label: "创作工作台", icon: WorkspaceIcon, end: false },
   { to: "/history", label: "历史作品", icon: HistoryIcon, end: false },
-  { to: "/status", label: "系统状态", icon: StatusIcon, end: false },
 ];
 
 export function Sidebar() {
@@ -14,7 +13,7 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="brand">
+      <Link className="brand" to="/" title="回到首页">
         <span className="brand-mark">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
             <path d="M12 2.6l2.1 5.7 5.7 2.1-5.7 2.1L12 18.2l-2.1-5.7L4.2 10.4l5.7-2.1z" />
@@ -24,7 +23,7 @@ export function Sidebar() {
           <strong>AI+X</strong>
           <small>营销软文工作台</small>
         </span>
-      </div>
+      </Link>
 
       <nav className="nav">
         {NAV.map(({ to, label, icon: Icon, end }) => (

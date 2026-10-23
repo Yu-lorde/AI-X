@@ -27,12 +27,7 @@ function Figures({ images }: { images: PreviewImage[] }) {
               <span>配图暂不可用</span>
             </div>
           )}
-          <figcaption>
-            {image.caption || image.name}
-            <small>
-              {image.name} · {image.position}
-            </small>
-          </figcaption>
+          <figcaption>{image.caption}</figcaption>
         </figure>
       ))}
     </>
@@ -52,9 +47,6 @@ export function ArticleView({ article }: { article: Article }) {
 
   return (
     <article className="article">
-      {article.title_options.length > 0 ? (
-        <p className="article-options">标题备选：{article.title_options.join("；")}</p>
-      ) : null}
       <h1>{article.title || "未命名"}</h1>
       {article.lead ? <p className="article-lead">{article.lead}</p> : null}
       <Figures images={slots[0]} />
@@ -64,7 +56,7 @@ export function ArticleView({ article }: { article: Article }) {
           <Figures images={slots[index + 1]} />
         </Fragment>
       ))}
-      {article.cta ? <p className="article-cta">行动引导：{article.cta}</p> : null}
+      {article.cta ? <p className="article-cta">{article.cta}</p> : null}
       {article.tags.length > 0 ? (
         <p className="article-tags">{article.tags.map((tag) => `#${tag.replace(/^#/, "")}`).join(" ")}</p>
       ) : null}

@@ -90,13 +90,17 @@ export function PreviewPanel({
         </div>
       </div>
 
-      <div className="preview-scroll" ref={scrollRef}>
-        {tab === "preview" ? (
-          <>
-            {preview.intro ? <p className="scene-line">{preview.intro}</p> : null}
-            <ArticleView article={preview.article} />
-          </>
+      <div className="preview-meta">
+        {preview.intro ? <span className="meta-scene">{preview.intro}</span> : null}
+        {preview.article.title_options.length > 0 ? (
+          <span className="meta-options" title={preview.article.title_options.join(" / ")}>
+            备选标题：{preview.article.title_options.join(" / ")}
+          </span>
         ) : null}
+      </div>
+
+      <div className="preview-scroll" ref={scrollRef}>
+        {tab === "preview" ? <ArticleView article={preview.article} /> : null}
 
         {tab === "checks" ? (
           <div className="checks">

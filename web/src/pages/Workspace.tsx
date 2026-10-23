@@ -215,7 +215,7 @@ export function WorkspacePage() {
     setError("");
     setQuestions([]);
     setNotice("");
-    if (workId) navigate("/");
+    if (workId) navigate("/workspace");
   };
 
   const startExample = (inputs: Inputs) => {

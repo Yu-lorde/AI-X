@@ -27,13 +27,6 @@ export const HistoryIcon = ({ size, ...rest }: Props) => (
   </svg>
 );
 
-export const StatusIcon = ({ size, ...rest }: Props) => (
-  <svg {...base(size)} {...rest}>
-    <path d="M12 3l7.5 3v5.5c0 4.4-3 7.9-7.5 9.5-4.5-1.6-7.5-5.1-7.5-9.5V6z" />
-    <path d="M9 12l2.2 2.2L15.4 10" />
-  </svg>
-);
-
 export const SunIcon = ({ size, ...rest }: Props) => (
   <svg {...base(size)} {...rest}>
     <circle cx="12" cy="12" r="4" />
