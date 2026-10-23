@@ -285,8 +285,20 @@ export function WorkspacePage() {
     try {
       const { inputs } = await api.parseRequest(sentence);
       setForm(current => ({ ...current, ...inputs, perspective: inputs.perspective || current.perspective || meta?.perspective_default }));
+      const filled = [
+        inputs.product && `型号：${inputs.product}`,
+        inputs.audience && `人群：${inputs.audience}`,
+        inputs.scene && `场景：${inputs.scene}`,
+        inputs.platform && `平台：${inputs.platform}`,
+        inputs.perspective && `视角：${inputs.perspective}`,
+      ].filter(Boolean);
       const missing = [!inputs.product && "产品型号", !inputs.platform && "发布平台"].filter(Boolean);
-      setParseHint(missing.length ? `已解析，请补充${missing.join("、")}；核对下方字段后再生成。` : "已填入下方字段，请核对后生成。人群和场景可留空。");
+      let hint = `已解析 ${filled.join("、") || "（未识别出任何字段）"}。`;
+      if (missing.length) hint += `必填项缺少：${missing.join("、")}，请在下方补齐。`;
+      if (!inputs.audience || !inputs.scene) hint += "人群/场景可留空，留空按通用产品软文生成。";
+      if (!inputs.perspective) hint += "视角未识别，保持当前选择。";
+      if (inputs.note) hint += "额外要求已填入修改框。";
+      setParseHint(`${hint}核对无误后点「生成并核验」。`);
     } catch (error) { setParseHint(errorText(error)); }
     finally { setParsing(false); }
   };
