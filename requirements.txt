@@ -1,0 +1,5 @@
+# Web 工作台部署依赖（FastAPI 后端 + 托管 web/dist）。
+# agent 本身只用标准库；gradio 仅旧版 agent/app.py 需要，web 部署不装。
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30
+pillow>=10.4

@@ -1,0 +1,17 @@
+.git
+.venv
+**/__pycache__
+*.pyc
+node_modules
+web/node_modules
+web/dist
+agent/cache
+agent/_kb_preview.txt
+server/data
+.env
+**/.env
+华为PC知识库
+华为PC知识库.zip
+*.zip
+范文库-说明
+docs

@@ -61,6 +61,11 @@ def spa(full_path: str):
 
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
 
-    uvicorn.run("server.main:app", host="127.0.0.1", port=8000, reload=False)
+    # 本地默认 127.0.0.1:8000；魔搭/容器里绑 0.0.0.0，端口读环境变量（PORT）。
+    host = os.environ.get("HOST") or ("0.0.0.0" if os.environ.get("PORT") else "127.0.0.1")
+    port = int(os.environ.get("PORT") or 8000)
+    uvicorn.run("server.main:app", host=host, port=port, reload=False)
