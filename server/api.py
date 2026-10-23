@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import mimetypes
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from config import DEFAULT_KB_NAME, credential_status, env, load_env_file
 from editor import MAX_PARAS, pack_state
@@ -18,6 +19,7 @@ from llm_client import LlmError
 from pydantic import BaseModel, Field
 
 from . import history_service
+from .poster import render_poster
 from .adapter import (
     compose_from_editor,
     editor_from,
@@ -210,6 +212,24 @@ def work_preview(work_id: str, payload: PreviewIn, request: Request) -> dict:
     article, verification, export_text = compose_from_editor(state, payload.editor.model_dump())
     fingerprint = article_fingerprint(article, loaded["inputs"])
     return preview_payload(article, verification, export_text, fingerprint, state)
+
+
+@router.post("/works/{work_id}/poster")
+def work_poster(work_id: str, payload: PreviewIn, request: Request):
+    loaded = history_service.load_work(_visitor(request), work_id)
+    if loaded is None:
+        raise HTTPException(status_code=404, detail="没有找到该作品")
+    article, _, _ = compose_from_editor(loaded["state"], payload.editor.model_dump())
+    try:
+        data = render_poster(article, loaded["state"])
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"海报生成失败：{exc}") from exc
+    filename = quote(f"{(article.get('title') or '门店海报')[:24]}.png")
+    return Response(
+        content=data,
+        media_type="image/png",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
+    )
 
 
 @router.post("/works/{work_id}/versions")

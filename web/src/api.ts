@@ -30,6 +30,15 @@ export const api = {
   preview: (workId: string, editor: Editor) =>
     post(`/api/works/${workId}/preview`, { editor }).then((r) => parse<Preview>(r)),
 
+  poster: async (workId: string, editor: Editor): Promise<Blob> => {
+    const response = await post(`/api/works/${workId}/poster`, { editor });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error((data as { detail?: string }).detail || `海报生成失败（${response.status}）`);
+    }
+    return response.blob();
+  },
+
   saveVersion: (workId: string, editor: Editor, sourceVersionNo?: number) =>
     post(`/api/works/${workId}/versions`, { editor, source_version_no: sourceVersionNo ?? null }).then((r) =>
       parse<WorkData>(r),

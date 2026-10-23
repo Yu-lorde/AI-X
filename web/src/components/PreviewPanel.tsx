@@ -23,10 +23,12 @@ export function PreviewPanel({
   preview,
   meta,
   scrollRef,
+  poster,
 }: {
   preview: Preview;
   meta: WorkMeta;
   scrollRef?: RefObject<HTMLDivElement>;
+  poster?: { available: boolean; busy: boolean; onGenerate: () => void };
 }) {
   const [tab, setTab] = useState<TabKey>("preview");
   const [copied, setCopied] = useState(false);
@@ -203,6 +205,12 @@ export function PreviewPanel({
                   <DownloadIcon size={14} />
                   下载 txt
                 </button>
+                {poster?.available ? (
+                  <button type="button" className="btn ghost small" onClick={poster.onGenerate} disabled={poster.busy}>
+                    <DownloadIcon size={14} />
+                    {poster.busy ? "生成中…" : "生成海报 PNG"}
+                  </button>
+                ) : null}
               </div>
             </div>
             <pre>{preview.export_text}</pre>

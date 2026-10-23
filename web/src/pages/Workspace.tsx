@@ -43,6 +43,7 @@ export function WorkspacePage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [posterBusy, setPosterBusy] = useState(false);
   const [formOpen, setFormOpen] = useState(true);
   const [error, setError] = useState("");
   const [questions, setQuestions] = useState<string[]>([]);
@@ -354,6 +355,26 @@ export function WorkspacePage() {
     }
   };
 
+  const onPoster = async () => {
+    if (!work || !editor || posterBusy) return;
+    setPosterBusy(true);
+    setError("");
+    try {
+      const blob = await api.poster(work.work_id, editor);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${editor.title || work.title || "门店海报"}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setNotice("门店海报已生成并下载");
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setPosterBusy(false);
+    }
+  };
+
   const onSwitchVersion = async (value: string) => {
     if (!work) return;
     const versionNo = Number(value);
@@ -602,7 +623,16 @@ export function WorkspacePage() {
               ) : null}
             </section>
             <section className="card panel">
-              <PreviewPanel preview={preview ?? work.preview} meta={work.meta} scrollRef={previewScroll} />
+              <PreviewPanel
+                preview={preview ?? work.preview}
+                meta={work.meta}
+                scrollRef={previewScroll}
+                poster={{
+                  available: work.inputs.platform === "门店海报",
+                  busy: posterBusy,
+                  onGenerate: () => void onPoster(),
+                }}
+              />
             </section>
           </div>
         </>
