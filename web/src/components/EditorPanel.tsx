@@ -50,7 +50,7 @@ export function EditorPanel({ editor, candidates, useTags, missingImages, onChan
 
   return (
     <div className="editor-scroll" ref={scrollRef}>
-      <div className="field">
+      <div className="field" data-anchor="title">
         <label htmlFor="ed-title">标题</label>
         <textarea
           id="ed-title"
@@ -72,7 +72,7 @@ export function EditorPanel({ editor, candidates, useTags, missingImages, onChan
         />
       </div>
 
-      <div className="field">
+      <div className="field" data-anchor="lead">
         <label htmlFor="ed-lead">导语</label>
         <textarea id="ed-lead" rows={3} value={editor.lead} onChange={(event) => patch({ lead: event.target.value })} />
       </div>
@@ -91,7 +91,7 @@ export function EditorPanel({ editor, candidates, useTags, missingImages, onChan
             <option value={NONE}>不配图</option>
             {candidates.map((item) => (
               <option key={item.name} value={item.name}>
-                {item.name}
+                {item.theme || item.name}
               </option>
             ))}
           </select>
@@ -147,7 +147,7 @@ export function EditorPanel({ editor, candidates, useTags, missingImages, onChan
 
       <div className="section-label">正文</div>
       {editor.paragraphs.map((paragraph, index) => (
-        <div className="para-block" key={index}>
+        <div className="para-block" key={index} data-anchor={`p${index}`}>
           <div className="para-head">
             <span className="para-no">{index + 1}</span>
             <span>第 {index + 1} 段</span>
@@ -187,7 +187,7 @@ export function EditorPanel({ editor, candidates, useTags, missingImages, onChan
 
       <div className="divider" />
 
-      <div className="field">
+      <div className="field" data-anchor="cta">
         <label htmlFor="ed-cta">行动引导</label>
         <textarea id="ed-cta" rows={2} value={editor.cta} onChange={(event) => patch({ cta: event.target.value })} />
       </div>

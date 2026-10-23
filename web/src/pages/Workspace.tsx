@@ -55,17 +55,31 @@ export function WorkspacePage() {
     const right = previewScroll.current;
     if (!left || !right) return;
 
-    const follow = (from: HTMLDivElement, to: HTMLDivElement) => () => {
-      const fromMax = from.scrollHeight - from.clientHeight;
-      const toMax = to.scrollHeight - to.clientHeight;
-      if (fromMax <= 0 || toMax <= 0) return;
-      const target = (from.scrollTop / fromMax) * toMax;
-      if (Math.abs(to.scrollTop - target) < 2) return;
-      to.scrollTop = target;
+    const align = (from: HTMLDivElement, to: HTMLDivElement) => () => {
+      const blocks = Array.from(from.querySelectorAll<HTMLElement>("[data-anchor]"));
+      if (!blocks.length) return;
+      const fromTop = from.getBoundingClientRect().top;
+      let current = blocks[blocks.length - 1];
+      for (const block of blocks) {
+        if (block.getBoundingClientRect().top - fromTop >= -12) {
+          current = block;
+          break;
+        }
+      }
+      const key = current.dataset.anchor;
+      if (!key) return;
+      const target = to.querySelector<HTMLElement>(`[data-anchor="${key}"]`);
+      if (!target) return;
+      const delta =
+        target.getBoundingClientRect().top -
+        to.getBoundingClientRect().top -
+        (current.getBoundingClientRect().top - fromTop);
+      if (Math.abs(delta) < 1.5) return;
+      to.scrollTop += delta;
     };
 
-    const onLeft = follow(left, right);
-    const onRight = follow(right, left);
+    const onLeft = align(left, right);
+    const onRight = align(right, left);
     left.addEventListener("scroll", onLeft, { passive: true });
     right.addEventListener("scroll", onRight, { passive: true });
     return () => {
@@ -401,6 +415,10 @@ export function WorkspacePage() {
               <div className="panel-head">
                 <h3>编辑区</h3>
                 <span className="hint">{editor?.paragraphs.length ?? 0} 段正文</span>
+              </div>
+              <div className="panel-meta">
+                <span className="meta-scene">改动自动同步到右侧</span>
+                <span className="meta-options">保存新版本后才写入历史</span>
               </div>
               {editor ? (
                 <EditorPanel

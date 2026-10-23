@@ -47,16 +47,24 @@ export function ArticleView({ article }: { article: Article }) {
 
   return (
     <article className="article">
-      <h1>{article.title || "未命名"}</h1>
-      {article.lead ? <p className="article-lead">{article.lead}</p> : null}
+      <h1 data-anchor="title">{article.title || "未命名"}</h1>
+      {article.lead ? (
+        <p className="article-lead" data-anchor="lead">
+          {article.lead}
+        </p>
+      ) : null}
       <Figures images={slots[0]} />
       {article.paragraphs.map((paragraph, index) => (
         <Fragment key={index}>
-          {paragraph.trim() ? <p>{paragraph}</p> : null}
+          {paragraph.trim() ? <p data-anchor={`p${index}`}>{paragraph}</p> : null}
           <Figures images={slots[index + 1]} />
         </Fragment>
       ))}
-      {article.cta ? <p className="article-cta">{article.cta}</p> : null}
+      {article.cta ? (
+        <p className="article-cta" data-anchor="cta">
+          {article.cta}
+        </p>
+      ) : null}
       {article.tags.length > 0 ? (
         <p className="article-tags">{article.tags.map((tag) => `#${tag.replace(/^#/, "")}`).join(" ")}</p>
       ) : null}

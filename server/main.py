@@ -50,7 +50,7 @@ def spa(full_path: str):
         return FileResponse(target)
     index = WEB_DIST / "index.html"
     if index.is_file():
-        return FileResponse(index)
+        return FileResponse(index, headers={"Cache-Control": "no-store"})
     return HTMLResponse(
         "<div style='font-family:system-ui;padding:48px;line-height:1.8'>"
         "<h2>前端还没有构建</h2>"

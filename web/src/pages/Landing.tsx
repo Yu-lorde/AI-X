@@ -7,6 +7,27 @@ import { useTheme } from "../theme";
 import type { WorkSummary } from "../types";
 import { formatTime } from "../utils";
 
+const SCENES = [
+  {
+    img: "/media/campus.jpg",
+    tag: "高校学生",
+    title: "开学季 · 宿舍 · 课堂",
+    body: "把轻薄、续航、屏幕这些参数，写成新生能感同身受的日常。",
+  },
+  {
+    img: "/media/office.jpg",
+    tag: "职场办公",
+    title: "通勤 · 会议 · 移动办公",
+    body: "围绕效率与协同，强调接口、重量和智慧办公体验。",
+  },
+  {
+    img: "/media/creator.jpg",
+    tag: "内容创作",
+    title: "图文 · 种草 · 短视频脚本",
+    body: "按平台模板组织开头、卖点与行动引导，配图位置一并给出。",
+  },
+];
+
 const STEPS = [
   {
     no: "01",
@@ -69,19 +90,19 @@ export function LandingPage() {
 
       <main className="landing-main">
         <section className="hero">
-          <p className="eyebrow">
+          <p className="eyebrow reveal">
             <i />
             HUAWEI PC · 内容中台
           </p>
-          <h1>
+          <h1 className="reveal">
             把一条需求，写成
             <br />
             能直接发布的<b>营销软文</b>
           </h1>
-          <p className="hero-sub">
+          <p className="hero-sub reveal">
             选好人群、场景与平台，系统先查本地知识库，再按平台模板成稿，并自动核验产品事实、配图型号与合规风险。改文字即时重排，每次保存都留一个版本。
           </p>
-          <div className="hero-actions">
+          <div className="hero-actions reveal">
             <button type="button" className="btn primary xl" onClick={() => navigate("/workspace")}>
               <SparkIcon size={17} />
               开始创作
@@ -91,7 +112,7 @@ export function LandingPage() {
               <ArrowIcon size={15} />
             </button>
           </div>
-          <ul className="hero-facts">
+          <ul className="hero-facts reveal">
             <li>
               <b>8</b>
               <span>业务场景</span>
@@ -107,7 +128,7 @@ export function LandingPage() {
           </ul>
         </section>
 
-        <aside className="hero-card" aria-hidden="true">
+        <aside className="hero-card reveal" aria-hidden="true">
           <div className="hero-card-top">
             <span className="chip subtle">小红书</span>
             <span className="chip">开学季</span>
@@ -135,6 +156,32 @@ export function LandingPage() {
           </div>
         </aside>
       </main>
+
+      <section className="landing-scenes">
+        <div className="scenes-head">
+          <h2>已经适配的场景</h2>
+          <p>同一套知识库，按人群和平台换不同的写法与配图。</p>
+        </div>
+        <div className="scene-grid">
+          {SCENES.map((scene) => (
+            <button
+              key={scene.title}
+              type="button"
+              className="scene-card"
+              onClick={() => navigate("/workspace")}
+            >
+              <span className="scene-media">
+                <img src={scene.img} alt="" loading="lazy" />
+                <em>{scene.tag}</em>
+              </span>
+              <span className="scene-body">
+                <strong>{scene.title}</strong>
+                <small>{scene.body}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="landing-steps">
         {STEPS.map((step) => (
@@ -178,7 +225,10 @@ export function LandingPage() {
         </section>
       ) : null}
 
-      <footer className="landing-foot">数据只存在本机的 SQLite；生成逻辑沿用现有 agent 流程，不接入新的模型或第三方服务。</footer>
+      <footer className="landing-foot">
+        <span>数据只存在本机的 SQLite；生成逻辑沿用现有 agent 流程，不接入新的模型或第三方服务。</span>
+        <span className="credit">场景配图来自 Unsplash，遵循 Unsplash License，可商用、免署名。</span>
+      </footer>
     </div>
   );
 }
