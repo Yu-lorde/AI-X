@@ -26,7 +26,7 @@ export function PreviewPanel({
 }: {
   preview: Preview;
   meta: WorkMeta;
-  scrollRef?: RefObject<HTMLDivElement | null>;
+  scrollRef?: RefObject<HTMLDivElement>;
 }) {
   const [tab, setTab] = useState<TabKey>("preview");
   const [copied, setCopied] = useState(false);

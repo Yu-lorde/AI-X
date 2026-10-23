@@ -145,8 +145,9 @@ export function LandingPage() {
       </section>
 
       <section className="landing-example" id="example">
+        <h2 className="example-section-title">成稿示例</h2>
         <div className="example-copy">
-          <p className="sec-eyebrow">成稿示例</p>
+          <p className="sec-eyebrow">开学季文案示例</p>
           <h2>从创作要求到文案初稿</h2>
           <p>填写产品、读者、场景和平台后，查看生成内容、参考资料与待确认信息。</p>
           <button type="button" className="example-link" onClick={() => navigate("/workspace")}>
@@ -189,11 +190,11 @@ export function LandingPage() {
           <div className="hero-card-foot">
             <span className="pill ok">
               <i className="dot" />
-              事实核验 5 项通过
+              示例展示
             </span>
             <span className="pill warn">
               <i className="dot" />
-              1 项待确认
+              非真实生成记录
             </span>
           </div>
         </aside>
@@ -255,7 +256,7 @@ export function LandingPage() {
 
               {index === 1 ? (
                 <div className="step-preview">
-                  <span className="preview-title">参考资料（3）</span>
+                  <span className="preview-title">参考资料（示例）</span>
                   {DOCS.map((doc) => (
                     <span key={doc} className="preview-doc">
                       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -273,7 +274,7 @@ export function LandingPage() {
                   <span className="preview-ver">
                     <b className="ver-badge">V2</b>
                     开学季学生购机文案
-                    <span className="ver-now">当前版本</span>
+                    <span className="ver-now">示例版本</span>
                   </span>
                   <span className="preview-ver">
                     <b className="ver-badge muted">V1</b>
@@ -321,7 +322,7 @@ export function LandingPage() {
       <footer className="landing-foot">
         <strong>懂你所需 · 营销内容工作台</strong>
         <span>产品资料、文案编辑与版本管理</span>
-        <span>数据只存在本机的 SQLite；生成逻辑沿用现有 agent 流程，不接入新的模型或第三方服务。</span>
+        <span>面向华为产品推广，支持产品资料参考、图文编辑与版本保存。</span>
         <span className="credit">场景配图来自 Unsplash，遵循 Unsplash License，可商用、免署名。</span>
       </footer>
     </div>

@@ -9,7 +9,7 @@ interface Props {
   useTags: boolean;
   missingImages: string[];
   onChange: (editor: Editor) => void;
-  scrollRef?: RefObject<HTMLDivElement | null>;
+  scrollRef?: RefObject<HTMLDivElement>;
 }
 
 const NONE = "";
