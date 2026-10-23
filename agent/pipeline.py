@@ -3,17 +3,24 @@ import re
 from pathlib import Path
 
 from compliance import check_text
-from config import DEFAULT_KB_NAME, credential_status, env, load_env_file
-from ima_client import ImaError, cached_image_path, find_knowledge_base, list_knowledge, read_media, search_knowledge
+from config import credential_status, load_env_file
+from exemplars import select_exemplars
+from humanizer import check_style
 from llm_client import LlmError, chat_json
 from local_kb import LocalError, collect as collect_local
 from prompts import SYSTEM_PROMPT
-from scenario_router import resolve_scenario
-from strategy import classify_title, is_product_fact, missing_questions, platform_rules
+from scenario_router import generic_route, resolve_scenario
+from strategy import canonical_perspective, missing_questions, perspective_brief, platform_rules
+
+MAX_REWRITES = 3  # 生成后最多重写几轮，直到合规和 AI 味核验通过
 
 
-def run(product: str, audience: str, scene: str, platform: str, note: str = "") -> dict:
+def run(product: str, audience: str, scene: str, platform: str, note: str = "", perspective: str = "") -> dict:
     load_env_file()
+    product = (product or "").strip()
+    audience = (audience or "").strip()
+    scene = (scene or "").strip()
+    platform = (platform or "").strip()
     questions = missing_questions(product, audience, scene, platform)
     if questions:
         return {
@@ -24,63 +31,38 @@ def run(product: str, audience: str, scene: str, platform: str, note: str = "") 
             "export_text": "",
         }
 
-    route = resolve_scenario(audience, scene, note)
-    strategy = {"product": product.strip(), "audience": audience.strip(), "scene": scene, **platform_rules(platform), **route}
-    if route["status"] != "matched":
-        return {
-            "ok": False,
-            "stage": "追问",
-            "message": "场景母文档已经对上，行业模块还需要确认。",
-            "questions": route["questions"],
-            "strategy": strategy,
-            "export_text": "",
-        }
+    # 人群留空、或场景选「无明确」时，不走 P8 行业场景，按通用产品软文生成。
+    generic = (not audience) or (scene in ("", "无明确"))
+    route = generic_route() if generic else resolve_scenario(audience, scene, note)
+    strategy = {"product": product, "audience": audience or "无明确", "scene": scene or "无明确", "perspective": canonical_perspective(perspective), **platform_rules(platform), **route}
 
-    source = "ima 共享知识库"
+    # 只读工作区 知识库/，不再走远程。人群没对上画像时按通用处理，不追问。
+    source = "知识库"
     try:
-        if not (env("IMA_OPENAPI_CLIENTID") or env("IMA_CLIENT_ID")) or not (env("IMA_OPENAPI_APIKEY") or env("IMA_API_KEY")):
-            raise ImaError("未配置 ima 凭证")
-        kb = find_knowledge_base(env("IMA_KB_NAME", DEFAULT_KB_NAME))
-        scenario_docs = _collect_scenario_docs(kb["kb_id"], route)
-        platform_doc = _open_platform_template(kb["kb_id"], strategy)
-        documents, images, nearby = _collect_sources(kb["kb_id"], strategy["product"])
-        if _pack_incomplete(scenario_docs, platform_doc, documents):
-            raise ImaError("远程知识库没有返回完整的场景文档、平台模板或 P1 产品事实")
-    except ImaError:
-        try:
-            pack = collect_local(route, strategy)
-        except LocalError as exc:
-            return _error("本地知识库也不可用", str(exc), strategy)
-        scenario_docs = pack["scenario_docs"]
-        platform_doc = pack["platform_doc"]
-        documents, images, nearby = pack["documents"], pack["images"], pack["nearby"]
-        source = pack["source"]
+        pack = collect_local(route, strategy)
+    except LocalError as exc:
+        return _error("知识库不可用", str(exc), strategy)
+    scenario_docs = pack["scenario_docs"]
+    platform_doc = pack["platform_doc"]
+    documents, images, nearby = pack["documents"], pack["images"], pack["nearby"]
 
     if not documents and nearby:
         names = "、".join(item["title"] for item in nearby[:6])
         return _error(
             "型号需要确认",
-            f"没有检索到与「{strategy['product']}」一致的资料，但找到相近型号：{names}。请改成完整型号后再生成。",
-            strategy,
-        )
-    missing_roles = [item["role"] for item in scenario_docs if not item["text"] and item["role"] in ("母文档", "客户画像", "方案输出模板")]
-    if missing_roles:
-        found = "、".join(item["title"] for item in scenario_docs if item["text"]) or "无"
-        return _error(
-            "场景文档不完整",
-            f"已映射到《{route['parent_title']}》的 {route['module_id']}，但{source}没有取到：{'、'.join(missing_roles)}。已取到：{found}。",
+            f"没有找到与「{strategy['product']}」一致的资料，但找到相近型号：{names}。请改成完整型号后再生成。",
             strategy,
         )
     if not platform_doc["text"]:
         return _error(
-            "没有检索到平台模板",
-            f"{source}中没有找到 P6/02 的《{strategy['template_query']}》或《{strategy['template_file']}》，因此不生成该平台成稿。",
+            "没有找到平台模板",
+            f"知识库里没有《{strategy['template_file']}》，因此不生成该平台成稿。",
             strategy,
         )
     if not documents:
         return _error(
-            "没有检索到 P1 产品事实",
-            f"场景已映射到《{route['parent_title']}》/{route['module_id']}。{source}里没有与「{strategy['product']}」一致的产品事实，因此不写参数。",
+            "没有找到该型号的产品事实",
+            f"知识库里没有与「{strategy['product']}」一致的产品事实，因此不写参数。（后续可接入联网查官网补充）",
             strategy,
             scenario_docs=scenario_docs,
             source=source,
@@ -101,26 +83,36 @@ def run(product: str, audience: str, scene: str, platform: str, note: str = "") 
         )
 
     article = _normalize_article(draft, images, strategy)
-    issues = check_text(_article_text(article), source_text, strategy["platform"])
+    compliance_issues = check_text(_article_text(article), source_text, strategy["platform"])
+    style_issues = check_style(article, strategy["platform"], source_text)
     pending = [str(item) for item in draft.get("pending") or [] if str(item).strip()]
-    if issues:
+    # 反复重写直到核验通过或到上限：口水词、三词并列等 AI 腔要改到没有，残留才进待确认。
+    attempts = 0
+    while (compliance_issues or style_issues) and attempts < MAX_REWRITES:
+        attempts += 1
         try:
-            revised = _rewrite(strategy, scenario_docs, platform_doc, documents, images, article, issues)
-            article = _normalize_article(revised, images, strategy)
-            issues = check_text(_article_text(article), source_text, strategy["platform"])
-            extra_pending = [str(item) for item in revised.get("pending") or [] if str(item).strip()]
-            pending = list(dict.fromkeys(pending + extra_pending))
+            revised = _rewrite(strategy, scenario_docs, platform_doc, documents, images, article, compliance_issues + style_issues)
         except LlmError:
-            pending.append("自动改写没有完成，下面的合规问题需要人工删除。")
+            pending.append("自动改写没有完成，下面的合规或 AI 味问题需要人工处理。")
+            break
+        article = _normalize_article(revised, images, strategy)
+        compliance_issues = check_text(_article_text(article), source_text, strategy["platform"])
+        style_issues = check_style(article, strategy["platform"], source_text)
+        extra_pending = [str(item) for item in revised.get("pending") or [] if str(item).strip()]
+        pending = list(dict.fromkeys(pending + extra_pending))
 
     for image in article["images"]:
         image["source_label"] = source
-    verification = _verification(article, documents, images, issues, pending, nearby, strategy)
+    verification = _verification(article, documents, images, compliance_issues, pending, nearby, strategy, style_issues)
     export_text = _export(strategy, scenario_docs, platform_doc, documents, article, verification)
+    if route.get("generic"):
+        message = f"未指定行业场景或人群，按通用产品软文生成。成稿遵循《{platform_doc['title']}》。来源：{source}。"
+    else:
+        message = f"已参考「{route.get('module_name') or route.get('module_id')}」客户画像，成稿遵循《{platform_doc['title']}》。来源：{source}。"
     return {
         "ok": True,
         "stage": "完成",
-        "message": f"已按《{route['parent_title']}》映射到 {route['module_id']}，成稿遵循《{platform_doc['title']}》。资料来源：{source}。",
+        "message": message,
         "source": source,
         "strategy": strategy,
         "documents": documents,
@@ -134,156 +126,6 @@ def run(product: str, audience: str, scene: str, platform: str, note: str = "") 
     }
 
 
-def _pack_incomplete(scenario_docs: list[dict], platform_doc: dict, documents: list[dict]) -> bool:
-    missing = [item["role"] for item in scenario_docs if not item["text"] and item["role"] in ("母文档", "客户画像", "方案输出模板")]
-    return bool(missing) or not platform_doc.get("text") or not documents
-
-
-def _collect_scenario_docs(kb_id: str, route: dict) -> list[dict]:
-    docs = [_open_named(kb_id, route["parent_title"], [route["parent_title"]], "母文档", "先按母文档的角色、任务链、证据边界和模块导航执行。")]
-    folder_items = _folder_items(kb_id, route.get("module_id") or route["module_name"])
-    for child in route["children"]:
-        opened = _open_from_items(folder_items, [child["role"]], child["role"], child["use"])
-        if not opened["text"]:
-            fallback = _open_named(
-                kb_id,
-                child["query"],
-                [route["module_name"], child["role"]],
-                child["role"],
-                child["use"],
-            )
-            if fallback["text"]:
-                opened = fallback
-        docs.append(opened)
-    return docs
-
-
-def _folder_items(kb_id: str, folder_name: str) -> list[dict]:
-    folders = [
-        item
-        for item in search_knowledge(kb_id, folder_name)
-        if item.get("media_type") == 99 and folder_name in item["title"]
-    ]
-    if not folders:
-        return []
-    return list_knowledge(kb_id, folders[0]["media_id"])
-
-
-def _open_from_items(items: list[dict], required: list[str], role: str, use: str) -> dict:
-    chosen = next((item for item in items if item.get("media_type") != 99 and all(part in item["title"] for part in required)), None)
-    if chosen is None:
-        return {"role": role, "use": use, "title": "、".join(required), "text": ""}
-    text = _read_text(chosen["media_id"]) or chosen.get("highlight") or ""
-    return {"role": role, "use": use, "title": chosen["title"], "text": text[:2500]}
-
-
-def _open_named(kb_id: str, query: str, required: list[str], role: str, use: str) -> dict:
-    chosen = None
-    for item in search_knowledge(kb_id, query):
-        if item.get("media_type") == 99:
-            continue
-        if all(part in item["title"] for part in required):
-            chosen = item
-            break
-    if chosen is None:
-        return {"role": role, "use": use, "title": query, "text": ""}
-    text = _read_text(chosen["media_id"]) or chosen.get("highlight") or ""
-    return {"role": role, "use": use, "title": chosen["title"], "text": text[:2500]}
-
-
-def _read_text(media_id: str) -> str:
-    try:
-        return (read_media(media_id).get("text") or "").strip()
-    except ImaError as exc:
-        if "上限" in str(exc) or "明天" in str(exc):
-            raise
-        return ""
-
-
-def _collect_sources(kb_id: str, product: str) -> tuple[list[dict], list[dict], list[dict]]:
-    merged = {}
-    for query in (product, f"{product} 产品事实", f"{product} 规格", f"{product} 图片"):
-        for item in search_knowledge(kb_id, query):
-            merged.setdefault(item["media_id"], item)
-
-    documents = []
-    images = []
-    nearby = []
-    for item in merged.values():
-        if item.get("media_type") == 99:
-            continue
-        kind = classify_title(product, item["title"])
-        if kind == "nearby":
-            nearby.append(item)
-            continue
-        if kind != "exact":
-            continue
-        cached = cached_image_path(item["media_id"]) if item.get("media_type") == 9 else ""
-        if cached:
-            detail = {"kind": "image", "text": "", "path": cached}
-        else:
-            detail = {"kind": "file", "text": ""}
-            try:
-                detail = read_media(item["media_id"])
-            except ImaError as exc:
-                if "上限" in str(exc) or "明天" in str(exc):
-                    raise
-                detail = {"kind": "file", "text": ""}
-        text = (detail.get("text") or "").strip() or item["highlight"]
-        record = {
-            "title": item["title"],
-            "media_id": item["media_id"],
-            "text": text[:4000],
-            "kind": detail.get("kind") or "file",
-            "path": detail.get("path") or "",
-        }
-        if item.get("media_type") == 9 or record["kind"] == "image" or _is_image_title(item["title"]):
-            record["kind"] = "image"
-            record["theme"] = _image_theme(item["title"])
-            if record["path"]:
-                images.append(record)
-        elif text and is_product_fact(item["title"]):
-            documents.append(record)
-        if len(documents) >= 3 and len(images) >= 12:
-            break
-    return documents[:3], _prefer_varied_images(images), nearby
-
-
-def _open_platform_template(kb_id: str, strategy: dict) -> dict:
-    use = "成稿的篇幅、结构、图文节奏、正反例边界和发布前检查以这份 P6/02 模板为准。不要套用其他平台，也不要照抄正例原句。"
-    for query in (strategy["template_query"], strategy["template_file"]):
-        found = _open_named(kb_id, query, [query], "平台模板", use)
-        if found["text"]:
-            return found
-    found = _open_named(kb_id, strategy["template_query"], strategy["template_match"], "平台模板", use)
-    if found["text"]:
-        return found
-    return {"role": "平台模板", "use": use, "title": strategy["template_query"], "text": ""}
-
-
-def _prefer_varied_images(images: list[dict]) -> list[dict]:
-    seen = set()
-    primary = []
-    extra = []
-    for image in images:
-        if image.get("theme") in seen:
-            extra.append(image)
-        else:
-            seen.add(image.get("theme"))
-            primary.append(image)
-    return (primary + extra)[:8]
-
-
-def _image_theme(title: str) -> str:
-    parts = re.split(r"[_\-.]+", Path(title).stem)
-    named = [part for part in parts if re.search(r"[\u4e00-\u9fff]", part)]
-    return named[-1] if named else Path(title).stem
-
-
-def _is_image_title(title: str) -> bool:
-    lowered = title.lower().split("?")[0]
-    return lowered.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif"))
-
 
 def _write(strategy: dict, scenario_docs: list[dict], platform_doc: dict, documents: list[dict], images: list[dict], note: str) -> dict:
     return chat_json(SYSTEM_PROMPT, _user_prompt(strategy, scenario_docs, platform_doc, documents, images, note))
@@ -293,42 +135,74 @@ def _rewrite(strategy: dict, scenario_docs: list[dict], platform_doc: dict, docu
     feedback = "\n".join(f"- {item}" for item in issues)
     user = _user_prompt(strategy, scenario_docs, platform_doc, documents, images, "")
     user += (
-        "\n\n上一次输出没有通过核验，请重新生成完整 JSON，并删掉这些问题：\n"
+        "\n\n上一稿没有通过核验。请重新生成完整 JSON：合规问题必须删除，"
+        "AI 腔问题要改写润色（换成具体说法、长短句交错、去掉套话和排比）。"
+        "正文里的免责声明、元话术和来源归因（例如“资料没写/以官网为准/官方定位里写的是”）一律直接删除，不要改写保留；不确定的内容只放进 pending。"
+        "但不得改动或杜撰 P1 事实、数字、型号、来源和结构，没有依据的句子不能保留。问题如下：\n"
         + feedback
-        + "\n上一稿仅供改写，其中没有依据的句子不能保留：\n"
+        + "\n上一稿仅供改写参考：\n"
         + json.dumps(article, ensure_ascii=False)
     )
     return chat_json(SYSTEM_PROMPT, user)
 
 
+def _exemplar_block(strategy: dict, note: str) -> str:
+    exemplars = select_exemplars(strategy["platform"], strategy["audience"], strategy["scene"], note, perspective=strategy.get("perspective", ""))
+    if not exemplars:
+        return ""
+    blocks = []
+    for item in exemplars:
+        good = f"好在哪：{item['good_points']}\n" if item["good_points"] else ""
+        label = "·".join(x for x in (item["platform"] or "通用", item.get("perspective") or "", item.get("product") or "") if x)
+        blocks.append(f"范文《{item['title']}》（{label}）\n{good}{item['body'][:1200]}")
+    return (
+        "参考范文（只学语气、结构和节奏，严禁照抄其句子，也不得借用范文里的任何产品信息；"
+        "所有参数仍只来自下面的 P1 事实）：\n"
+        + "\n\n".join(blocks)
+        + "\n\n"
+    )
+
+
 def _user_prompt(strategy: dict, scenario_docs: list[dict], platform_doc: dict, documents: list[dict], images: list[dict], note: str) -> str:
     scenario_blocks = []
     for doc in scenario_docs:
-        body = doc["text"] or "（ima 未返回这份文档，不能用其他文档补写它的要求）"
-        scenario_blocks.append(f"【{doc['role']}】{doc['title']}\n使用方式：{doc['use']}\n{body[:1600]}")
-    fact_blocks = [f"[{index}] 标题：{doc['title']}\n摘录：{doc['text'][:1500]}" for index, doc in enumerate(documents, start=1)]
+        body = doc["text"] or ""
+        if body:
+            scenario_blocks.append(f"【{doc['role']}】{doc['title']}\n使用方式：{doc['use']}\n{body[:1800]}")
+    fact_blocks = [f"[{index}] 标题：{doc['title']}\n摘录：{doc['text'][:3000]}" for index, doc in enumerate(documents, start=1)]
     image_lines = [
-        f"{item['title']}｜画面：{item.get('theme') or '产品图'}｜已从共享库下载"
+        f"{item['title']}｜画面：{item.get('theme') or '产品图'}｜已在本地知识库"
         for item in images
-    ] or ["（本次没有检索到该型号图片，images 输出空数组）"]
+    ] or ["（本次没有该型号图片，images 输出空数组）"]
     revision = f"\n用户的临时修改要求：{note.strip()}" if note.strip() else ""
-    return f"""请为下面的任务写图文软文。场景任务来自 P8，成稿形态严格按 P6/02 平台模板，产品参数只来自 P1。
+    exemplar_block = _exemplar_block(strategy, note)
+    if scenario_blocks:
+        opening = "成稿形态严格按平台模板，产品参数只来自产品事实，人群需求参考客户画像。"
+        scenario_header = f"目标人群：{strategy['audience']}（下方有客户画像可参考）"
+        scenario_section = "客户画像（理解人群的角色、任务和限制，画像没确认的门槛不要写成已满足）：\n" + chr(10).join(scenario_blocks)
+    else:
+        opening = "成稿形态严格按平台模板，产品参数只来自产品事实。"
+        scenario_header = f"目标人群：{strategy['audience']}（知识库没有对应画像，请你按自己对这个人群的理解来写，不要编造未证实的使用结论）"
+        scenario_section = (
+            "写作要求：以产品本身的事实、卖点和适用性为主，结合平台模板和写作视角组织内容，"
+            "按你对目标人群的合理理解切入，不要虚构具体的使用数据或结论。"
+        )
+    return f"""请为下面的任务写图文软文。{opening}
 
 型号：{strategy['product']}
 人群：{strategy['audience']}
 营销场景：{strategy['scene']}
-P8 母文档：{strategy['parent_title']}
-P8 行业模块：{strategy['module_id']} {strategy['module_brief']}
+{scenario_header}
 发布平台：{strategy['platform']}
+写作视角：{strategy['perspective']}——{perspective_brief(strategy['perspective'])}
 {revision}
 
-P6/02 平台模板：
+{exemplar_block}P6/02 平台模板：
 【{platform_doc['role']}】{platform_doc['title']}
 使用方式：{platform_doc['use']}
 {platform_doc['text'][:3500]}
 
-P8 场景文档：
-{chr(10).join(scenario_blocks)}
+{scenario_section}
 
 P1 产品事实：
 {chr(10).join(fact_blocks)}
@@ -406,7 +280,7 @@ def _article_text(article: dict) -> str:
     return "\n".join(part for part in parts if part)
 
 
-def _verification(article, documents, images, issues, pending, nearby, strategy=None) -> dict:
+def _verification(article, documents, images, issues, pending, nearby, strategy=None, style_issues=None) -> dict:
     source_titles = {item["title"] for item in documents}
     fact_lines = []
     for fact in article["facts"]:
@@ -429,11 +303,13 @@ def _verification(article, documents, images, issues, pending, nearby, strategy=
     for item in nearby:
         image_lines.append(f"已排除相近型号资料：{item['title']}")
     compliance = issues or ["通过：没有发现绝对化用语、无依据价格或虚假体验。"]
+    ai_style = style_issues or ["通过：没有发现明显 AI 腔。"]
     pending_lines = pending or ["没有额外待确认项。"]
     return {
         "facts": fact_lines,
         "images": image_lines,
         "compliance": compliance,
+        "ai_style": ai_style,
         "pending": pending_lines,
     }
 
@@ -453,10 +329,10 @@ def _export(strategy: dict, scenario_docs: list[dict], platform_doc: dict, docum
             "一、场景判断",
             f"- 目标人群：{strategy['audience']}",
             f"- 营销场景：{strategy['scene']}",
-            f"- P8 母文档：{strategy.get('parent_title', '')}",
-            f"- P8 行业模块：{strategy.get('module_id', '')} {strategy.get('module_brief', '')}",
+            f"- 写作视角：{strategy.get('perspective', '')}",
+            f"- 参考画像：{strategy.get('module_name') or strategy.get('module_id') or '无（按人群理解）'}",
             f"- 发布平台：{strategy['platform']}",
-            f"- P6/02 模板：{platform_doc['title']}",
+            f"- 平台模板：{platform_doc['title']}",
             "",
             "二、知识库依据",
             f"- 产品型号：{strategy['product']}",
@@ -484,6 +360,8 @@ def _export(strategy: dict, scenario_docs: list[dict], platform_doc: dict, docum
             *[f"  {line}" for line in verification["images"]],
             "- 合规：",
             *[f"  {line}" for line in verification["compliance"]],
+            "- AI味：",
+            *[f"  {line}" for line in verification.get("ai_style") or []],
             "- 待确认信息：",
             *[f"  {line}" for line in verification["pending"]],
         ]
