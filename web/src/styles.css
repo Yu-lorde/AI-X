@@ -2488,3 +2488,11 @@ textarea:focus-visible {
 .sentence-demand-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
 .sentence-demand-actions .btn { flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) { .hero-art-image { filter: none; } }
+
+/* GPU optical displacement replaces whole-image translation and cursor rings. */
+.hero-art .hero-art-image { filter: none; animation: none; transform: none; inset: 0; transition: none; }
+.hero-liquid-canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+.hero-art.webgl-ready .hero-liquid-canvas { opacity: 1; }
+.hero-art.webgl-ready .hero-art-image { visibility: hidden; }
+@media(max-width:760px) { .hero-liquid-canvas { opacity: 0; } .hero-art.webgl-ready .hero-liquid-canvas { opacity: .5; } }
+@media(prefers-reduced-motion:reduce) { .hero-art.webgl-ready .hero-liquid-canvas { display: none; } .hero-art.webgl-ready .hero-art-image { visibility: visible; } }
