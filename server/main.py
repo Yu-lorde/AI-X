@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 from . import api, history_service  # noqa: E402
 from .config import COOKIE_MAX_AGE, COOKIE_NAME, WEB_DIST  # noqa: E402
 
-app = FastAPI(title="AI+X 营销软文工作台", docs_url="/api/docs", openapi_url="/api/openapi.json")
+app = FastAPI(title="懂你所需 · 营销内容工作台", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
 
 @app.middleware("http")

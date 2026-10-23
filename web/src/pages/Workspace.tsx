@@ -55,36 +55,159 @@ export function WorkspacePage() {
     const right = previewScroll.current;
     if (!left || !right) return;
 
-    const align = (from: HTMLDivElement, to: HTMLDivElement) => () => {
-      const blocks = Array.from(from.querySelectorAll<HTMLElement>("[data-anchor]"));
-      if (!blocks.length) return;
-      const fromTop = from.getBoundingClientRect().top;
-      let current = blocks[blocks.length - 1];
-      for (const block of blocks) {
-        if (block.getBoundingClientRect().top - fromTop >= -12) {
-          current = block;
-          break;
-        }
-      }
-      const key = current.dataset.anchor;
-      if (!key) return;
-      const target = to.querySelector<HTMLElement>(`[data-anchor="${key}"]`);
-      if (!target) return;
-      const delta =
-        target.getBoundingClientRect().top -
-        to.getBoundingClientRect().top -
-        (current.getBoundingClientRect().top - fromTop);
-      if (Math.abs(delta) < 1.5) return;
-      to.scrollTop += delta;
+    type Anchor = { key: string; top: number };
+    const READ_LINE = 14;
+
+    // 只跟随“用户真正操作过的那一侧”，避免程序化滚动回写触发对方的 scroll 事件形成回路
+    let userSide: "left" | "right" | null = null;
+    let frame = 0;
+    let dirty = true;
+
+    const collect = (el: HTMLDivElement): Anchor[] => {
+      const base = el.getBoundingClientRect().top - el.scrollTop;
+      return Array.from(el.querySelectorAll<HTMLElement>("[data-anchor]"))
+        .map((node) => ({ key: node.dataset.anchor || "", top: node.getBoundingClientRect().top - base }))
+        .filter((item) => item.key);
     };
 
-    const onLeft = align(left, right);
-    const onRight = align(right, left);
+    let leftAnchors = collect(left);
+    let rightAnchors = collect(right);
+
+    const refresh = () => {
+      leftAnchors = collect(left);
+      rightAnchors = collect(right);
+      dirty = false;
+    };
+
+    // 阅读线落在哪两个锚点之间，图片撑高的区间会让跟随侧按比例走得更快
+    const segmentOf = (anchors: Anchor[], read: number) => {
+      if (!anchors.length) return null;
+      let index = 0;
+      for (let i = 0; i < anchors.length; i += 1) {
+        if (anchors[i].top <= read) index = i;
+        else break;
+      }
+      const lower = index === anchors.length - 1 ? Math.max(index - 1, 0) : index;
+      const upper = Math.min(lower + 1, anchors.length - 1);
+      if (lower === upper) return { a: anchors[lower], b: anchors[lower], ratio: 0 };
+      const span = Math.max(anchors[upper].top - anchors[lower].top, 1);
+      return { a: anchors[lower], b: anchors[upper], ratio: (read - anchors[lower].top) / span };
+    };
+
+    const sync = (from: HTMLDivElement, to: HTMLDivElement, fromAnchors: Anchor[], toAnchors: Anchor[]) => {
+      // 只按两侧都存在的锚点分段，缺失的段落不会让跟随中断
+      const keys = new Set(toAnchors.map((item) => item.key));
+      const usable = fromAnchors.filter((item) => keys.has(item.key));
+      const segment = segmentOf(usable, from.scrollTop + READ_LINE);
+      if (!segment) return;
+      const a = toAnchors.find((item) => item.key === segment.a.key);
+      const b = toAnchors.find((item) => item.key === segment.b.key) ?? a;
+      if (!a || !b) return;
+      const next = a.top + segment.ratio * (b.top - a.top) - READ_LINE;
+      const max = Math.max(to.scrollHeight - to.clientHeight, 0);
+      aim(to, Math.min(Math.max(next, 0), max));
+    };
+
+    // 目标位置逐帧逼近，图片区间需要多滚的距离会被摊到几帧里，不会一帧跳过去
+    let aimEl: HTMLDivElement | null = null;
+    let aimTo = 0;
+    let glide = 0;
+
+    const glideStep = () => {
+      glide = 0;
+      if (!aimEl) return;
+      const remaining = aimTo - aimEl.scrollTop;
+      if (Math.abs(remaining) < 0.5) {
+        aimEl = null;
+        return;
+      }
+      aimEl.scrollTop += Math.max(Math.min(remaining * 0.45, 120), -120);
+      glide = requestAnimationFrame(glideStep);
+    };
+
+    const aim = (el: HTMLDivElement, value: number) => {
+      aimEl = el;
+      aimTo = value;
+      if (!glide) glide = requestAnimationFrame(glideStep);
+    };
+
+    const stopGlide = () => {
+      aimEl = null;
+      if (glide) {
+        cancelAnimationFrame(glide);
+        glide = 0;
+      }
+    };
+
+    const run = () => {
+      frame = 0;
+      if (!userSide) return;
+      if (dirty) refresh();
+      if (userSide === "left") sync(left, right, leftAnchors, rightAnchors);
+      else sync(right, left, rightAnchors, leftAnchors);
+    };
+
+    const arm = (side: "left" | "right") => () => {
+      if (userSide !== side) return;
+      if (!frame) frame = requestAnimationFrame(run);
+    };
+
+    const onLeft = arm("left");
+    const onRight = arm("right");
+    const takeLeft = () => {
+      if (userSide === "left") return;
+      stopGlide();
+      userSide = "left";
+    };
+    const takeRight = () => {
+      if (userSide === "right") return;
+      stopGlide();
+      userSide = "right";
+    };
+
+    const bind = (el: HTMLDivElement, take: () => void) => {
+      el.addEventListener("wheel", take, { passive: true });
+      el.addEventListener("pointerdown", take, { passive: true });
+      el.addEventListener("touchstart", take, { passive: true });
+      el.addEventListener("focusin", take);
+      const onLoad = () => {
+        dirty = true;
+      };
+      el.addEventListener("load", onLoad, true);
+      return () => {
+        el.removeEventListener("wheel", take);
+        el.removeEventListener("pointerdown", take);
+        el.removeEventListener("touchstart", take);
+        el.removeEventListener("focusin", take);
+        el.removeEventListener("load", onLoad, true);
+      };
+    };
+
     left.addEventListener("scroll", onLeft, { passive: true });
     right.addEventListener("scroll", onRight, { passive: true });
+    const unbindLeft = bind(left, takeLeft);
+    const unbindRight = bind(right, takeRight);
+
+    // 文字、图片、视口变化后重新测量锚点位置，滚动过程中不再反复读取布局
+    const observer = new MutationObserver(() => {
+      dirty = true;
+    });
+    observer.observe(left, { childList: true, subtree: true, characterData: true });
+    observer.observe(right, { childList: true, subtree: true, characterData: true });
+    const onResize = () => {
+      dirty = true;
+    };
+    window.addEventListener("resize", onResize);
+
     return () => {
       left.removeEventListener("scroll", onLeft);
       right.removeEventListener("scroll", onRight);
+      unbindLeft();
+      unbindRight();
+      if (frame) cancelAnimationFrame(frame);
+      stopGlide();
+      observer.disconnect();
+      window.removeEventListener("resize", onResize);
     };
   }, [work?.work_id, loading, Boolean(work)]);
 

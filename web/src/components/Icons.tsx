@@ -104,3 +104,5 @@ export const ChevronIcon = ({ size, ...rest }: Props) => (
     <path d="M8 10l4 4 4-4" />
   </svg>
 );
+
+export const CloverIcon = () => <svg viewBox="0 0 36 36" fill="currentColor" aria-hidden="true"><path d="M18 1 C13 5 9 9 13 13 C16 16 18 15 18 15 C18 15 20 16 23 13 C27 9 23 5 18 1Z"/><path d="M35 18 C31 13 27 9 23 13 C20 16 21 18 21 18 C21 18 20 20 23 23 C27 27 31 23 35 18Z"/><path d="M18 35 C23 31 27 27 23 23 C20 20 18 21 18 21 C18 21 16 20 13 23 C9 27 13 31 18 35Z"/><path d="M1 18 C5 23 9 27 13 23 C16 20 15 18 15 18 C15 18 16 16 13 13 C9 9 5 13 1 18Z"/></svg>;

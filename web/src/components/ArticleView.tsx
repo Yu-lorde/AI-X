@@ -13,14 +13,18 @@ function slotOf(position: string, count: number): number | null {
   return Math.min(Math.max(index, 1), count);
 }
 
-function Figures({ images }: { images: PreviewImage[] }) {
+function Figures({ images, anchor }: { images: PreviewImage[]; anchor?: string }) {
   if (!images.length) return null;
   return (
     <>
       {images.map((image, index) => (
-        <figure className="article-figure" key={`${image.name}-${index}`}>
+        <figure
+          className="article-figure"
+          key={`${image.name}-${index}`}
+          data-anchor={index === 0 ? anchor : undefined}
+        >
           {image.url ? (
-            <img src={image.url} alt={image.caption || image.name} loading="lazy" />
+            <img src={image.url} alt={image.caption || image.name} />
           ) : (
             <div className="figure-placeholder">
               <ImageIcon size={22} />
@@ -53,11 +57,11 @@ export function ArticleView({ article }: { article: Article }) {
           {article.lead}
         </p>
       ) : null}
-      <Figures images={slots[0]} />
+      <Figures images={slots[0]} anchor="cover" />
       {article.paragraphs.map((paragraph, index) => (
         <Fragment key={index}>
           {paragraph.trim() ? <p data-anchor={`p${index}`}>{paragraph}</p> : null}
-          <Figures images={slots[index + 1]} />
+          <Figures images={slots[index + 1]} anchor={`pick${index}`} />
         </Fragment>
       ))}
       {article.cta ? (

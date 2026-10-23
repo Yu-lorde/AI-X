@@ -107,7 +107,7 @@ export function EditorPanel({ editor, candidates, useTags, missingImages, onChan
       </div>
 
       {candidates.length > 0 ? (
-        <div className="gallery-box">
+        <div className="gallery-box" data-anchor="cover">
           <div className="gallery-head">
             <span className="hint">先在右侧选位置，再点图片替换</span>
             <select value={focus} onChange={(event) => setFocus(Number(event.target.value))}>
@@ -153,7 +153,7 @@ export function EditorPanel({ editor, candidates, useTags, missingImages, onChan
             <span>第 {index + 1} 段</span>
           </div>
           <textarea rows={4} value={paragraph} onChange={(event) => setParagraph(index, event.target.value)} />
-          <div className="pair">
+          <div className="pair" data-anchor={`pick${index}`}>
             <div className="field">
               <label htmlFor={`ed-pick-${index}`}>段后配图</label>
               <select

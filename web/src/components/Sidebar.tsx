@@ -1,7 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
 
 import { useTheme } from "../theme";
-import { HistoryIcon, MoonIcon, SunIcon, WorkspaceIcon } from "./Icons";
+import { CloverIcon, HistoryIcon, MoonIcon, SunIcon, WorkspaceIcon } from "./Icons";
 
 const NAV = [
   { to: "/workspace", label: "创作工作台", icon: WorkspaceIcon, end: false },
@@ -14,14 +14,11 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <Link className="brand" to="/" title="回到首页">
-        <span className="brand-mark">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-            <path d="M12 2.6l2.1 5.7 5.7 2.1-5.7 2.1L12 18.2l-2.1-5.7L4.2 10.4l5.7-2.1z" />
-          </svg>
+        <span className="brand-mark"><CloverIcon />
         </span>
         <span className="brand-text">
-          <strong>AI+X</strong>
-          <small>营销软文工作台</small>
+          <strong>懂你所需</strong>
+          <small>营销内容工作台</small>
         </span>
       </Link>
 
