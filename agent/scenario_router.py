@@ -1,6 +1,22 @@
-"""把用户的人群和场景映射到 P8 母文档，再映射到其中的一个行业模块。"""
+"""把用户的人群映射到一个行业模块（用来取该模块的客户画像）。
 
-from scenario_catalog import CHILD_ROLES, MODULES, PARENTS
+映射得上就用对应画像；映射不上就走通用，让模型按自己对人群的理解来写，不再追问。
+"""
+
+from scenario_catalog import MODULES
+
+
+def generic_route() -> dict:
+    """人群/场景无明确或没对上画像时的通用路由：不绑定行业画像。"""
+    return {
+        "status": "matched",
+        "generic": True,
+        "module_id": "",
+        "module_name": "",
+        "module_brief": "通用产品软文（无特定行业画像）",
+        "children": [],
+        "questions": [],
+    }
 
 
 def resolve_scenario(audience: str, scene: str, note: str = "") -> dict:
@@ -10,53 +26,15 @@ def resolve_scenario(audience: str, scene: str, note: str = "") -> dict:
         reverse=True,
     )
     best_score, best_id = ranked[0]
-    second_score = ranked[1][0]
-    if best_score == 0 or best_score - second_score < 2:
-        parent = _parent_for_scene(scene)
-        options = [_label(module_id) for module_id in parent["modules"]]
-        return {
-            "status": "ambiguous",
-            "questions": [
-                f"当前场景对应 P8 母文档《{parent['title']}》，但人群还不能唯一对应下面的行业模块。请在补充说明里写明模块名称：",
-                *options,
-            ],
-        }
-
-    parent = _parent_for_module(best_id, scene)
+    if best_score == 0:
+        return generic_route()
     module = MODULES[best_id]
     return {
         "status": "matched",
-        "parent_id": parent["id"],
-        "parent_title": parent["title"],
+        "generic": False,
         "module_id": best_id,
         "module_name": module["name"],
         "module_brief": module["brief"],
-        "children": [
-            {"role": role, "use": use, "query": f"{module['name']} {role}"}
-            for role, use in CHILD_ROLES
-        ],
+        "children": [],
         "questions": [],
     }
-
-
-def _parent_for_scene(scene: str) -> dict:
-    for parent in PARENTS:
-        if scene in parent["scenes"]:
-            return parent
-    return PARENTS[0]
-
-
-def _parent_for_module(module_id: str, scene: str) -> dict:
-    owners = [parent for parent in PARENTS if module_id in parent["modules"]]
-    if not owners:
-        module = MODULES[module_id]
-        return {"id": module_id, "title": module["name"], "scenes": [], "modules": [module_id]}
-    for parent in owners:
-        if scene in parent["scenes"]:
-            return parent
-    return owners[0]
-
-
-def _label(module_id: str) -> str:
-    module = MODULES[module_id]
-    return f"{module_id}：{module['brief']}"

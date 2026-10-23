@@ -101,7 +101,7 @@ def _article(article: dict) -> str:
 
 def _checks(verification: dict) -> str:
     blocks = []
-    for title, key in (("产品事实", "facts"), ("图片型号", "images"), ("合规", "compliance"), ("待确认信息", "pending")):
+    for title, key in (("产品事实", "facts"), ("图片型号", "images"), ("合规", "compliance"), ("AI味", "ai_style"), ("待确认信息", "pending")):
         lines = "".join(f"<li>{html.escape(str(item))}</li>" for item in verification.get(key) or [])
         blocks.append(f"<p class='label'>{title}</p><ul>{lines}</ul>")
     return "".join(blocks)

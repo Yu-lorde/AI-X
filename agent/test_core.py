@@ -4,10 +4,13 @@ from compliance import check_text
 
 
 def test_missing_questions():
-    questions = missing_questions("", "", "开学季", "小红书")
+    # 型号和平台必填；人群、场景可留空（留空走通用软文）。
+    questions = missing_questions("", "大学新生", "开学季", "")
     assert any("型号" in item for item in questions)
-    assert any("写给谁" in item for item in questions)
+    assert any("发布平台" in item for item in questions)
     assert missing_questions("MateBook D 14", "大学新生", "开学季", "小红书") == []
+    # 人群留空、场景选无明确，不再追问，直接放行。
+    assert missing_questions("MateBook D 14", "", "无明确", "小红书") == []
 
 
 def test_nearby_model_is_not_exact():
@@ -24,24 +27,37 @@ def test_compliance_flags_price_and_absolute_words():
     assert check_text("适合出差开会。", "适合出差开会。", "公众号") == []
 
 
-def test_scenario_maps_education_admin_to_parent_and_module():
+def test_compliance_flags_leaked_specs_not_in_p1():
+    # P1 是 D14：1920×1200、300尼特、56Wh、1.39kg。范文里的 2.8K/70Wh/120Hz 搬进来应被判无依据。
+    source = "屏幕 14 英寸 1920×1200 300 尼特 100% sRGB 电池 56 Wh 重量约 1.39 kg"
+    out = "这块 2.8K OLED 屏，120Hz 高刷，70Wh 大电池，拎着才 1.39kg。"
+    issues = check_text(out, source, "小红书")
+    assert any("2.8K" in item for item in issues)
+    assert any("70Wh" in item for item in issues)
+    assert any("120Hz" in item for item in issues)
+    # 1.39kg、300尼特、56Wh 这些 P1 里有的数字不应被误判
+    ok = check_text("重量 1.39kg，300尼特，56Wh，14英寸。", source, "小红书")
+    assert ok == []
+
+
+def test_scenario_maps_education_admin_to_module():
+    # 人群映射到行业模块（用来取该模块的客户画像），不再有母文档/五份文档/追问。
     route = resolve_scenario("学校教务和信息中心", "开学季", "")
     assert route["status"] == "matched"
-    assert route["parent_title"] == "教育场景问题"
+    assert route["generic"] is False
     assert route["module_id"] == "06-教育管理"
-    assert [item["role"] for item in route["children"]] == ["客户画像", "问题清单", "方案输出模板", "验收清单", "完整参考案例"]
 
 
-def test_student_maps_to_college_module_under_same_parent():
+def test_student_maps_to_college_module():
     route = resolve_scenario("准备开学的大学新生", "开学季", "")
     assert route["module_id"] == "08-高校学生"
-    assert route["parent_title"] == "教育场景问题"
 
 
-def test_vague_office_user_must_choose_module():
-    route = resolve_scenario("经常出差的商务人士", "职场办公", "")
-    assert route["status"] == "ambiguous"
-    assert any("移动办公场景卡" in item for item in route["questions"])
+def test_unknown_audience_falls_back_to_generic_not_ambiguous():
+    # 人群没对上任何模块 → 通用（模型按理解写），不再追问。
+    route = resolve_scenario("某种很小众说不清的人群", "职场办公", "")
+    assert route["status"] == "matched"
+    assert route["generic"] is True
 
 
 def test_article_render_embeds_cached_image(tmp_path=None):
@@ -116,9 +132,9 @@ def test_local_kb_feeds_editor_slots():
     route = resolve_scenario("学校教务和信息中心", "开学季", "")
     strategy = {"product": "MateBook D 14", **platform_rules("公众号"), **route}
     pack = collect(route, strategy)
-    assert any(item["role"] == "母文档" and "教育" in item["text"] for item in pack["scenario_docs"])
-    assert any(item["role"] == "客户画像" and item["text"] for item in pack["scenario_docs"])
-    assert any(item["role"] == "方案输出模板" and item["text"] for item in pack["scenario_docs"])
+    # 场景只保留客户画像
+    assert [item["role"] for item in pack["scenario_docs"]] == ["客户画像"]
+    assert pack["scenario_docs"][0]["text"]
     assert "公众号" in pack["platform_doc"]["title"] and pack["platform_doc"]["text"]
     assert pack["documents"] and "产品事实" in pack["documents"][0]["title"]
     assert pack["images"] and Path(pack["images"][0]["path"]).is_file()
@@ -175,9 +191,10 @@ if __name__ == "__main__":
     test_missing_questions()
     test_nearby_model_is_not_exact()
     test_compliance_flags_price_and_absolute_words()
-    test_scenario_maps_education_admin_to_parent_and_module()
-    test_student_maps_to_college_module_under_same_parent()
-    test_vague_office_user_must_choose_module()
+    test_compliance_flags_leaked_specs_not_in_p1()
+    test_scenario_maps_education_admin_to_module()
+    test_student_maps_to_college_module()
+    test_unknown_audience_falls_back_to_generic_not_ambiguous()
     test_article_render_embeds_cached_image()
     test_platform_points_at_p6_template()
     test_local_kb_feeds_editor_slots()

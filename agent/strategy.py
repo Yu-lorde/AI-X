@@ -1,6 +1,6 @@
 """发布平台的交付格式。场景内容不在这里编写，必须从 P8 文档读取。"""
 
-MARKETING_SCENES = ["开学季", "职场办公", "内容创作", "家庭换新", "企业采购", "门店到访", "新品首发", "节日营销"]
+MARKETING_SCENES = ["开学季", "职场办公", "内容创作", "家庭换新", "企业采购", "门店到访", "新品首发", "节日营销", "无明确"]
 
 # 只记录 P6/02 的文档名称，用来从 ima 检索。篇幅、结构和图片数量以取回的模板原文为准。
 # image_min / image_max 对齐 P6/02 平台模板里的图文节奏，检索不足时按实际张数配，并在核验里说明。
@@ -21,21 +21,40 @@ PLATFORMS = {
 }
 PLATFORM_ALIASES = {"公众号": "微信公众号", "门店朋友圈": "销售朋友圈", "朋友圈": "销售朋友圈"}
 
+# 写作视角：决定成稿的叙述立场和切入角度，不突破合规。
+# “真实用户”只是从用户的使用场景和体感角度写，仍不得杜撰体验数据或结论，参数只来自 P1。
+PERSPECTIVES = {
+    "真实用户": "以真实使用者的第一人称视角写：从具体使用场景、动作和体感切入，像用户在分享自己的使用过程；但不得杜撰未经证实的体验数据、测试结果或使用结论，参数只来自 P1。",
+    "官方宣传": "以品牌官方视角写：从产品定位、核心能力和适用人群切入，陈述克制准确、代表官方口径，不堆营销套词，不替用户编造体验。",
+    "媒体报道": "以第三方媒体或评测视角写：客观中立，交代背景和事实，明确区分官方信息与外部观察，不替品牌喊口号，不下未经证实的结论。",
+    "行业分析": "以行业或选型顾问视角写：结合使用场景与需求做分析和取舍判断，给出选型逻辑而非单向推荐，指出适用与不适用的边界。",
+}
+PERSPECTIVE_DEFAULT = "真实用户"
+
+
+def canonical_perspective(perspective: str) -> str:
+    name = (perspective or "").strip()
+    return name if name in PERSPECTIVES else PERSPECTIVE_DEFAULT
+
+
+def perspective_brief(perspective: str) -> str:
+    return PERSPECTIVES[canonical_perspective(perspective)]
+
 EXTRA_MODEL_WORDS = ("se", "pro", "fold", "gt", "ultra", "酷睿", "优享", "行业版", "非凡")
-FACT_HINTS = ("产品事实", "规格", "参数", "卖点与限制", "图片索引", "价格")
-REJECT_HINTS = ("软文", "小红书", "公众号", "朋友圈", "海报", "案例研究", "话术", "完整参考案例", "问题清单", "客户画像")
+# 价格卡只讲价格口径和下架状态，不是规格事实源，放进来会让成稿写成价格免责文。
+# 价格由专门字段处理，不混进产品事实喂给模型。
+FACT_HINTS = ("产品事实", "规格", "参数", "卖点与限制", "图片索引")
+REJECT_HINTS = ("软文", "小红书", "公众号", "朋友圈", "海报", "案例研究", "话术", "完整参考案例", "问题清单", "客户画像", "价格")
 
 
 def missing_questions(product: str, audience: str, scene: str, platform: str) -> list[str]:
+    # 只有型号和平台是必填：型号决定 P1 取数，平台决定成稿形态。
+    # 人群和场景可留空；留空或选「无明确」时按通用产品软文生成。
     questions = []
     if not product.strip():
         questions.append("要写哪一个具体型号？系列名不够，例如需要区分 MateBook 14 和 MateBook D 14。")
-    if not audience.strip():
-        questions.append("写给谁看？例如大学新生、教务与信息中心、经常出差的销售。")
-    if scene not in MARKETING_SCENES:
-        questions.append("业务场景选哪一个？开学季、职场办公、内容创作、家庭换新、企业采购、门店到访、新品首发、节日营销。")
     if canonical_platform(platform) not in PLATFORMS:
-        questions.append("发布平台须是 P6/02 中的模板：" + "、".join(PLATFORMS))
+        questions.append("发布平台须是 P6/02 中的模板：" + "、".join(p for p in PLATFORMS))
     return questions
 
 
